@@ -1069,6 +1069,11 @@ export function UnifiedAssistant() {
                             currentPapers: data.output.papers
                         }))
                     }
+
+                    if (data.output?.action === 'show_visualization' && data.output?.papers) {
+                        setVisualizationPapers(data.output.papers)
+                        setShowVisualization(true)
+                    }
                 } else if (data.type === 'evaluation') {
                     setReflectionData(prev => ({
                         ...prev,

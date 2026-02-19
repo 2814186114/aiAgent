@@ -642,6 +642,31 @@ class UnifiedAgent:
                 "result": "调研报告已生成"
             }
         
+        is_visualize_step = any(kw in step_id or kw in step_name or kw in step_desc 
+                               for kw in ["visualize", "visual", "可视化", "图表", "图谱", "网络图", "时间线"])
+        
+        if is_visualize_step:
+            papers = context.get("papers", []) or current_papers
+            
+            viz_type = "author_network"
+            task_lower = task.lower()
+            if "时间" in task or "timeline" in task_lower:
+                viz_type = "timeline"
+            elif "引用" in task or "citation" in task_lower:
+                viz_type = "citation_graph"
+            elif "知识" in task or "knowledge" in task_lower:
+                viz_type = "knowledge_graph"
+            elif "作者" in task or "author" in task_lower:
+                viz_type = "author_network"
+            
+            return {
+                "output_type": "visualization",
+                "action": "show_visualization",
+                "viz_type": viz_type,
+                "papers": papers,
+                "result": f"正在生成可视化图表..."
+            }
+        
         return {"output_type": "text", "result": f"步骤「{step.name}」已完成"}
     
     async def _execute_schedule_step(self, step: PlanStep, task: str, 

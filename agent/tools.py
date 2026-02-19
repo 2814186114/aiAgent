@@ -304,6 +304,57 @@ try:
 except ImportError:
     pass
 
+@register_async_tool("visualize_papers")
+async def visualize_papers(papers: list = None, viz_type: str = "author_network", 
+                          title: str = "") -> Dict[str, Any]:
+    viz_types = {
+        "timeline": "时间线视图",
+        "author_network": "作者网络图",
+        "citation_graph": "引用关系图",
+        "knowledge_graph": "知识图谱"
+    }
+    
+    viz_name = viz_types.get(viz_type, viz_type)
+    
+    return {
+        "success": True,
+        "action": "show_visualization",
+        "viz_type": viz_type,
+        "viz_name": viz_name,
+        "papers": papers or [],
+        "title": title or f"论文{viz_name}",
+        "message": f"正在生成{viz_name}..."
+    }
+
+@register_async_tool("generate_visualization")
+async def generate_visualization(data_type: str, papers: list = None, 
+                                analysis_result: dict = None) -> Dict[str, Any]:
+    viz_map = {
+        "author": "author_network",
+        "authors": "author_network",
+        "作者": "author_network",
+        "citation": "citation_graph",
+        "citations": "citation_graph",
+        "引用": "citation_graph",
+        "timeline": "timeline",
+        "时间": "timeline",
+        "时间线": "timeline",
+        "knowledge": "knowledge_graph",
+        "知识": "knowledge_graph",
+        "知识图谱": "knowledge_graph"
+    }
+    
+    viz_type = viz_map.get(data_type.lower(), "author_network")
+    
+    return {
+        "success": True,
+        "action": "show_visualization",
+        "viz_type": viz_type,
+        "papers": papers or [],
+        "analysis_result": analysis_result,
+        "message": f"正在生成可视化..."
+    }
+
 try:
     from .reminders import add_reminder, list_reminders, delete_reminder, complete_reminder
     @register_async_tool("add_reminder")
@@ -873,6 +924,57 @@ def get_tool_schemas() -> List[Dict[str, Any]]:
                         }
                     },
                     "required": ["user_request"]
+                }
+            }
+        })
+    
+    if "visualize_papers" in ASYNC_TOOLS:
+        schemas.append({
+            "type": "function",
+            "function": {
+                "name": "visualize_papers",
+                "description": "将论文数据可视化展示，支持时间线、作者网络、引用关系图、知识图谱等多种视图",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "papers": {
+                            "type": "array",
+                            "description": "要可视化的论文列表，可选，如果不提供则使用当前搜索结果"
+                        },
+                        "viz_type": {
+                            "type": "string",
+                            "enum": ["timeline", "author_network", "citation_graph", "knowledge_graph"],
+                            "description": "可视化类型：timeline(时间线)、author_network(作者网络)、citation_graph(引用关系图)、knowledge_graph(知识图谱)"
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "可视化图表标题"
+                        }
+                    },
+                    "required": []
+                }
+            }
+        })
+    
+    if "generate_visualization" in ASYNC_TOOLS:
+        schemas.append({
+            "type": "function",
+            "function": {
+                "name": "generate_visualization",
+                "description": "根据数据类型自动生成相应的可视化图表",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "data_type": {
+                            "type": "string",
+                            "description": "可视化数据类型，如：author(作者网络)、citation(引用关系)、timeline(时间线)、knowledge(知识图谱)"
+                        },
+                        "papers": {
+                            "type": "array",
+                            "description": "论文数据"
+                        }
+                    },
+                    "required": ["data_type"]
                 }
             }
         })
