@@ -810,6 +810,21 @@ export function UnifiedAssistant() {
     const [progress, setProgress] = useState<Progress | null>(null)
     const [tasks, setTasks] = useState<PlanTask[]>([])
     const [stepOutputs, setStepOutputs] = useState<Record<string, any>>({})
+    const [reflectionData, setReflectionData] = useState<{
+        enabled: boolean
+        iteration: number
+        maxIterations: number
+        evaluation: any | null
+        analysis: any | null
+        isReflecting: boolean
+    }>({
+        enabled: false,
+        iteration: 0,
+        maxIterations: 2,
+        evaluation: null,
+        analysis: null,
+        isReflecting: false
+    })
     const [error, setError] = useState<string | null>(null)
     const [result, setResult] = useState<any>(null)
     const [taskType, setTaskType] = useState<string | null>(null)
@@ -1054,6 +1069,31 @@ export function UnifiedAssistant() {
                             currentPapers: data.output.papers
                         }))
                     }
+                } else if (data.type === 'evaluation') {
+                    setReflectionData(prev => ({
+                        ...prev,
+                        enabled: true,
+                        iteration: data.iteration || prev.iteration,
+                        evaluation: data.scores
+                    }))
+                } else if (data.type === 'reflection') {
+                    setReflectionData(prev => ({
+                        ...prev,
+                        enabled: true,
+                        iteration: data.iteration || prev.iteration,
+                        maxIterations: data.max_iterations || prev.maxIterations,
+                        isReflecting: true
+                    }))
+                } else if (data.type === 'reflection_analysis') {
+                    setReflectionData(prev => ({
+                        ...prev,
+                        analysis: {
+                            failureReason: data.failure_reason,
+                            suggestions: data.suggestions,
+                            willRetry: data.will_retry
+                        },
+                        isReflecting: data.will_retry
+                    }))
                 } else if (data.type === 'complete') {
                     const res = data.result
                     setResult(res)
@@ -1062,6 +1102,14 @@ export function UnifiedAssistant() {
                     }
                     setLoading(false)
                     setStreamingContent('')
+                    setReflectionData({
+                        enabled: false,
+                        iteration: 0,
+                        maxIterations: 2,
+                        evaluation: null,
+                        analysis: null,
+                        isReflecting: false
+                    })
 
                     const planWithOutputs = res.plan ? res.plan.map((t: any) => ({
                         ...t,
@@ -1475,6 +1523,107 @@ export function UnifiedAssistant() {
                                                         </div>
                                                     )
                                                 })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {reflectionData.enabled && (reflectionData.evaluation || reflectionData.isReflecting) && (
+                                        <div className="p-3 border-b border-gray-700">
+                                            <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-3 border border-purple-500/30">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-lg">🤔</span>
+                                                    <span className="text-sm font-medium text-purple-300">
+                                                        自我反思
+                                                    </span>
+                                                    <span className="text-xs text-gray-400">
+                                                        第 {reflectionData.iteration}/{reflectionData.maxIterations} 轮
+                                                    </span>
+                                                </div>
+
+                                                {reflectionData.isReflecting && !reflectionData.evaluation && (
+                                                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                                                        <div className="animate-spin w-3 h-3 border border-purple-400 border-t-transparent rounded-full"></div>
+                                                        <span>正在评估结果...</span>
+                                                    </div>
+                                                )}
+
+                                                {reflectionData.evaluation && (
+                                                    <div className="space-y-2">
+                                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-400">完整性:</span>
+                                                                <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${reflectionData.evaluation.completeness >= 0.6 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                                                        style={{ width: `${reflectionData.evaluation.completeness * 100}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-gray-300">{Math.round(reflectionData.evaluation.completeness * 100)}%</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-400">准确性:</span>
+                                                                <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${reflectionData.evaluation.accuracy >= 0.6 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                                                        style={{ width: `${reflectionData.evaluation.accuracy * 100}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-gray-300">{Math.round(reflectionData.evaluation.accuracy * 100)}%</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-400">有用性:</span>
+                                                                <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${reflectionData.evaluation.usefulness >= 0.6 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                                                        style={{ width: `${reflectionData.evaluation.usefulness * 100}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-gray-300">{Math.round(reflectionData.evaluation.usefulness * 100)}%</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-400">清晰度:</span>
+                                                                <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full rounded-full ${reflectionData.evaluation.clarity >= 0.6 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                                                        style={{ width: `${reflectionData.evaluation.clarity * 100}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-gray-300">{Math.round(reflectionData.evaluation.clarity * 100)}%</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center justify-between pt-1 border-t border-gray-700/50">
+                                                            <span className="text-xs text-gray-400">
+                                                                总分: <span className={`font-medium ${reflectionData.evaluation.passed ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                                    {Math.round(reflectionData.evaluation.overall_score * 100)}%
+                                                                </span>
+                                                            </span>
+                                                            <span className={`text-xs px-2 py-0.5 rounded ${reflectionData.evaluation.passed ? 'bg-green-900/50 text-green-300' : 'bg-yellow-900/50 text-yellow-300'}`}>
+                                                                {reflectionData.evaluation.passed ? '✅ 通过' : '⚠️ 需改进'}
+                                                            </span>
+                                                        </div>
+
+                                                        {reflectionData.evaluation.feedback && (
+                                                            <div className="text-xs text-gray-400 pt-1">
+                                                                💡 {reflectionData.evaluation.feedback}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {reflectionData.analysis && reflectionData.isReflecting && (
+                                                    <div className="mt-2 pt-2 border-t border-gray-700/50">
+                                                        <div className="flex items-center gap-2 text-xs text-orange-300">
+                                                            <div className="animate-spin w-3 h-3 border border-orange-400 border-t-transparent rounded-full"></div>
+                                                            <span>正在调整策略重试...</span>
+                                                        </div>
+                                                        {reflectionData.analysis.suggestions && reflectionData.analysis.suggestions.length > 0 && (
+                                                            <div className="mt-1 text-xs text-gray-400">
+                                                                建议: {reflectionData.analysis.suggestions.slice(0, 2).join('；')}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     )}

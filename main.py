@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from agent import ReActAgent
 from agent.planning_agent import PlanningAgent
 from agent.unified_agent import UnifiedAgent
+from agent.reflection import ReflectionAgent
 from agent.ppt_generator import generate_ppt
 from agent.memory import get_memory_manager
 from agent.tasks import save_task, get_task, list_tasks, delete_task
@@ -54,6 +55,9 @@ app.add_middleware(
 agent = ReActAgent()
 planning_agent = PlanningAgent()
 unified_agent = UnifiedAgent()
+reflection_agent = ReflectionAgent(unified_agent)
+
+REFLECTION_ENABLED = True
 
 active_websockets: List[WebSocket] = []
 
@@ -840,7 +844,10 @@ try:
                     
                     try:
                         print(f"[WS] Starting task execution...")
-                        result = await unified_agent.execute_task(task, callback=callback, context_input=context)
+                        if REFLECTION_ENABLED:
+                            result = await reflection_agent.execute_task(task, callback=callback, context=context)
+                        else:
+                            result = await unified_agent.execute_task(task, callback=callback, context_input=context)
                         
                         if is_active:
                             print("[WS] Task completed, sending final result")
