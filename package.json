@@ -1,0 +1,90 @@
+{
+    "name": "academic-assistant-agent",
+    "version": "1.0.0",
+    "description": "Academic Assistant Agent - AI-powered desktop application for graduate students",
+    "main": "electron-main.js",
+    "scripts": {
+        "dev": "concurrently -k \"npm run dev:frontend\" \"npm run dev:server\" \"npm run dev:python\" \"npm run dev:electron\"",
+        "dev:frontend": "vite",
+        "dev:server": "node server.js",
+        "dev:python": "python -m uvicorn main:app --reload --port 8000",
+        "dev:electron": "wait-on http://localhost:5173 && electron .",
+        "build": "vite build",
+        "build:electron": "npm run build && electron-builder",
+        "start": "electron .",
+        "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+        "typecheck": "tsc --noEmit"
+    },
+    "keywords": [
+        "electron",
+        "react",
+        "academic",
+        "ai-agent"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "concurrently": "^8.2.2",
+        "electron-is-dev": "^3.0.1",
+        "express": "^4.18.2",
+        "node-fetch": "^2.7.0",
+        "pptxgenjs": "^4.0.1",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "socket.io": "^4.7.2",
+        "socket.io-client": "^4.7.2",
+        "wait-on": "^7.2.0",
+        "ws": "^8.19.0"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.43",
+        "@types/react-dom": "^18.2.17",
+        "@vitejs/plugin-react": "^4.2.1",
+        "autoprefixer": "^10.4.16",
+        "electron": "^28.3.3",
+        "electron-builder": "^24.9.1",
+        "eslint": "^8.56.0",
+        "postcss": "^8.4.32",
+        "tailwindcss": "^3.4.0",
+        "typescript": "^5.3.3",
+        "vite": "^5.0.10"
+    },
+    "build": {
+        "appId": "com.academic.assistant",
+        "productName": "Academic Assistant Agent",
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "dist/**/*",
+            "electron-main.js",
+            "preload.js",
+            "server.js",
+            "main.py",
+            "requirements.txt",
+            "node_modules/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "main.py",
+                "to": "main.py"
+            },
+            {
+                "from": "requirements.txt",
+                "to": "requirements.txt"
+            }
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "public/icon.ico"
+        },
+        "mac": {
+            "target": "dmg",
+            "icon": "public/icon.icns"
+        },
+        "linux": {
+            "target": "AppImage",
+            "icon": "public/icon.png"
+        }
+    }
+}

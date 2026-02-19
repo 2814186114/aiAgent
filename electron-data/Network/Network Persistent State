@@ -1,0 +1,1 @@
+{"net":{"http_server_properties":{"servers":[{"anonymization":[],"server":"https://c09bc9c04079.2015a691.ap-southeast-1.token.awswaf.com","supports_spdy":true},{"anonymization":[],"server":"https://www.semanticscholar.org","supports_spdy":true},{"anonymization":[],"server":"https://arxiv.org","supports_spdy":true}],"version":5},"network_qualities":{"CAISABiAgICA+P////8B":"4G"}}}
