@@ -9,6 +9,8 @@ import { ResearchAssistant } from './ResearchAssistant'
 import { ExperimentManager } from './ExperimentManager'
 import { UnifiedAssistant } from './UnifiedAssistant'
 import { VisualizationDashboard } from './VisualizationDashboard'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { LoginModal } from './components/LoginModal'
 
 interface Paper {
     title: string
@@ -84,7 +86,9 @@ const QUICK_ACTIONS: QuickAction[] = [
     { id: 'query', label: '查询记录', icon: '🔍', mode: 'query', prefix: '/查询 ', placeholder: '查询历史，如：最近的BERT实验' },
 ]
 
-function App() {
+function AppContent() {
+    const { user, logout } = useAuth()
+    const [showLoginModal, setShowLoginModal] = useState(false)
     const [activeTab, setActiveTab] = useState<Tab>('unified')
     const [showSidebar, setShowSidebar] = useState(true)
     const [messages, setMessages] = useState<Message[]>([])
@@ -540,6 +544,28 @@ function App() {
                                 <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></span>
                                 <span className="text-sm">{isConnected ? '已连接' : '未连接'}</span>
                             </div>
+                            <div className="flex items-center gap-3 ml-4">
+                                {user ? (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-600 dark:text-gray-300">
+                                            👤 {user.username}
+                                        </span>
+                                        <button
+                                            onClick={logout}
+                                            className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                        >
+                                            登出
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowLoginModal(true)}
+                                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                    >
+                                        登录
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 flex-wrap">
@@ -933,7 +959,19 @@ function App() {
                     )}
                 </div>
             </div>
+
+            {showLoginModal && (
+                <LoginModal onClose={() => setShowLoginModal(false)} />
+            )}
         </div>
+    )
+}
+
+function App() {
+    return (
+        <AuthProvider>
+            <AppContent />
+        </AuthProvider>
     )
 }
 

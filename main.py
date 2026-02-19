@@ -35,6 +35,11 @@ from agent.literature import (
     add_folder, delete_folder, list_folders, add_paper_to_folder, remove_paper_from_folder,
     mark_paper_read
 )
+from agent.auth import (
+    create_user, authenticate_user, get_user,
+    create_conversation, save_message, get_conversation, 
+    list_conversations, delete_conversation, search_conversations
+)
 
 app = FastAPI(title="Academic Assistant Agent - Python Service")
 
@@ -132,6 +137,30 @@ class FolderPaperRequest(BaseModel):
     paper_id: str
     folder_id: int
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    email: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class SaveMessageRequest(BaseModel):
+    conversation_id: str
+    role: str
+    content: str
+    metadata: Optional[Dict[str, Any]] = None
+
+class CreateConversationRequest(BaseModel):
+    title: Optional[str] = None
+    user_id: Optional[int] = None
+
+class SearchConversationsRequest(BaseModel):
+    query: str
+    user_id: Optional[int] = None
+    limit: Optional[int] = 20
+
 @app.get("/ping")
 async def ping():
     return {"message": "pong"}
@@ -144,6 +173,119 @@ async def health():
         "timestamp": datetime.now().isoformat(),
         "llm_configured": agent.client is not None
     }
+
+@app.post("/auth/register")
+async def register(request: RegisterRequest):
+    result = create_user(request.username, request.password, request.email)
+    if result.get("success"):
+        return JSONResponse(content={
+            "success": True,
+            "user": result
+        })
+    else:
+        return JSONResponse(content={
+            "success": False,
+            "error": result.get("error")
+        }, status_code=400)
+
+@app.post("/auth/login")
+async def login(request: LoginRequest):
+    result = authenticate_user(request.username, request.password)
+    if result.get("success"):
+        return JSONResponse(content={
+            "success": True,
+            "user": result["user"]
+        })
+    else:
+        return JSONResponse(content={
+            "success": False,
+            "error": result.get("error")
+        }, status_code=401)
+
+@app.get("/auth/user/{user_id}")
+async def get_user_info(user_id: int):
+    user = get_user(user_id)
+    if user:
+        return JSONResponse(content={
+            "success": True,
+            "user": user
+        })
+    else:
+        return JSONResponse(content={
+            "success": False,
+            "error": "User not found"
+        }, status_code=404)
+
+@app.post("/conversations")
+async def create_new_conversation(request: CreateConversationRequest):
+    result = create_conversation(request.user_id, request.title)
+    if result.get("success"):
+        return JSONResponse(content={
+            "success": True,
+            "conversation": result["conversation"]
+        })
+    else:
+        return JSONResponse(content={
+            "success": False,
+            "error": result.get("error")
+        }, status_code=400)
+
+@app.get("/conversations")
+async def get_conversations(user_id: Optional[int] = None, limit: int = 50):
+    conversations = list_conversations(user_id, limit)
+    return JSONResponse(content={
+        "success": True,
+        "conversations": conversations
+    })
+
+@app.get("/conversations/{conversation_id}")
+async def get_conversation_detail(conversation_id: str):
+    conversation = get_conversation(conversation_id)
+    if conversation:
+        return JSONResponse(content={
+            "success": True,
+            "conversation": conversation
+        })
+    else:
+        return JSONResponse(content={
+            "success": False,
+            "error": "Conversation not found"
+        }, status_code=404)
+
+@app.post("/messages")
+async def save_message_to_conversation(request: SaveMessageRequest):
+    result = save_message(request.conversation_id, request.role, request.content, request.metadata)
+    if result.get("success"):
+        return JSONResponse(content={
+            "success": True,
+            "message": result["message"]
+        })
+    else:
+        return JSONResponse(content={
+            "success": False,
+            "error": result.get("error")
+        }, status_code=400)
+
+@app.delete("/conversations/{conversation_id}")
+async def delete_conversation_by_id(conversation_id: str):
+    result = delete_conversation(conversation_id)
+    if result.get("success"):
+        return JSONResponse(content={
+            "success": True
+        })
+    else:
+        return JSONResponse(content={
+            "success": False,
+            "error": result.get("error")
+        }, status_code=400)
+
+@app.post("/conversations/search")
+async def search_conversations_endpoint(request: SearchConversationsRequest):
+    conversations = search_conversations(request.query, request.user_id, request.limit)
+    return JSONResponse(content={
+        "success": True,
+        "conversations": conversations
+    })
 
 @app.post("/process")
 async def process_message(request: MessageRequest):

@@ -938,7 +938,7 @@ export function UnifiedAssistant() {
 
     const startTask = async () => {
         if (!task.trim() || loading) return
-
+        setTasks([])
         const isVisualizationRequest = detectVisualizationIntent(task.trim())
 
         if (isVisualizationRequest && conversation.currentPapers.length > 0) {
