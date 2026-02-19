@@ -973,10 +973,16 @@ class UnifiedAgent:
 2. 如果涉及概念解释，请用通俗易懂的语言
 3. 如果有实际应用场景，请举例说明
 4. 回答要完整，不要过于简短
+5. **必须使用 Markdown 格式**，包括：
+   - 使用 `##` 标题分隔不同部分
+   - 使用 `**粗体**` 强调重点
+   - 使用 `-` 或 `1.` 列表展示要点
+   - 使用 ` ```代码块` 展示代码示例
+   - 使用 `> 引用` 展示重要说明
 
 问题：{task}
 
-请直接回答，不需要其他格式："""
+请使用 Markdown 格式回答："""
         
         full_answer = ""
         async for chunk in self._call_llm_stream(prompt, temperature=0.7, callback=callback):

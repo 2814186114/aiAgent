@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { HistorySidebar } from './HistorySidebar'
+import ReactMarkdown from 'react-markdown'
 
 interface Paper {
     paper_id: string
@@ -1292,8 +1293,8 @@ export function UnifiedAssistant() {
                                                                             <h5 className="text-xs font-medium text-gray-400 mb-2">
                                                                                 💡 答案
                                                                             </h5>
-                                                                            <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
-                                                                                {step.output.answer}
+                                                                            <div className="text-xs text-gray-300 leading-relaxed prose prose-invert prose-sm max-w-none">
+                                                                                <ReactMarkdown>{step.output.answer}</ReactMarkdown>
                                                                             </div>
                                                                         </div>
                                                                     )}
@@ -1312,7 +1313,9 @@ export function UnifiedAssistant() {
                                         )}
 
                                         <div className="p-3">
-                                            <p className="text-gray-300 text-sm whitespace-pre-wrap">{msg.content}</p>
+                                            <div className="text-gray-300 text-sm prose prose-invert prose-sm max-w-none">
+                                                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -1361,8 +1364,8 @@ export function UnifiedAssistant() {
                                     {streamingContent && (
                                         <div className="p-3 border-b border-gray-700">
                                             <h5 className="text-xs font-medium text-gray-400 mb-2">💡 正在生成回答...</h5>
-                                            <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
-                                                {streamingContent}
+                                            <div className="text-xs text-gray-300 leading-relaxed prose prose-invert prose-sm max-w-none">
+                                                <ReactMarkdown>{streamingContent}</ReactMarkdown>
                                                 <span className="animate-pulse">▌</span>
                                             </div>
                                         </div>
