@@ -77,6 +77,7 @@ interface SavedTask {
     answer?: string
     plan?: PlanTask[]
     created_at: string
+    updated_at?: string
 }
 
 interface ConversationMessage {
@@ -88,6 +89,7 @@ interface ConversationMessage {
     papers?: Paper[]
     plan?: PlanTask[]
     taskType?: string
+    isComplete?: boolean
 }
 
 interface ConversationContext {
@@ -927,7 +929,8 @@ export function UnifiedAssistant() {
             const data = await response.json()
             if (data.success && data.task) {
                 const savedTask: SavedTask = data.task
-                setTask(savedTask.task)
+
+                setTask('')
                 setTaskType(savedTask.task_type || null)
                 setResult({
                     final_answer: savedTask.answer,
@@ -935,6 +938,25 @@ export function UnifiedAssistant() {
                 })
                 setTasks(savedTask.plan || [])
                 setCurrentTaskId(taskId)
+
+                const userMessage: ConversationMessage = {
+                    id: `${taskId}-user`,
+                    role: 'user',
+                    content: savedTask.task,
+                    timestamp: savedTask.created_at
+                }
+
+                const assistantMessage: ConversationMessage = {
+                    id: `${taskId}-assistant`,
+                    role: 'assistant',
+                    content: savedTask.answer || '任务已完成',
+                    timestamp: savedTask.updated_at || savedTask.created_at
+                }
+
+                setConversation(prev => ({
+                    ...prev,
+                    messages: [userMessage, assistantMessage]
+                }))
 
                 if (savedTask.plan) {
                     const newExpanded = new Set<string>()
