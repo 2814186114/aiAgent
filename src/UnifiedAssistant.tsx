@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { HistorySidebar } from './HistorySidebar'
 import ReactMarkdown from 'react-markdown'
+import { VisualizationDashboard, Paper as VizPaper } from './VisualizationDashboard'
 
 interface Paper {
     paper_id: string
@@ -831,6 +832,30 @@ export function UnifiedAssistant() {
         sessionId: Date.now().toString()
     })
     const [currentMessageId, setCurrentMessageId] = useState<string | null>(null)
+    const [showVisualization, setShowVisualization] = useState(false)
+    const [visualizationPapers, setVisualizationPapers] = useState<VizPaper[]>([])
+
+    const detectVisualizationIntent = (userTask: string): boolean => {
+        const vizKeywords = ['可视化', '图表', '图谱', '时间线', '网络图', '关系图', '趋势图', '作者网络', '引用网络', '知识图谱']
+        return vizKeywords.some(kw => userTask.toLowerCase().includes(kw))
+    }
+
+    const convertToVizPapers = (papers: Paper[]): VizPaper[] => {
+        return papers.map(p => ({
+            paper_id: p.paper_id,
+            title: p.title,
+            authors: p.authors || [],
+            year: p.year || new Date().getFullYear(),
+            abstract: p.abstract || '',
+            url: p.url || '',
+            pdf_url: p.pdf_url || '',
+            source: p.source || 'Unknown',
+            citation_count: p.citation_count || 0,
+            keywords: p.analysis?.keywords || [],
+            references: [],
+            cited_by: []
+        }))
+    }
 
     useEffect(() => {
         return () => {
@@ -910,6 +935,14 @@ export function UnifiedAssistant() {
 
     const startTask = async () => {
         if (!task.trim() || loading) return
+
+        const isVisualizationRequest = detectVisualizationIntent(task.trim())
+
+        if (isVisualizationRequest && conversation.currentPapers.length > 0) {
+            setVisualizationPapers(convertToVizPapers(conversation.currentPapers))
+            setShowVisualization(true)
+            return
+        }
 
         const userMessageId = Date.now().toString()
         const userMessage: ConversationMessage = {
@@ -1047,6 +1080,11 @@ export function UnifiedAssistant() {
                         ...prev,
                         messages: [...prev.messages, assistantMessage]
                     }))
+
+                    const allPapers = res.research_result?.papers || res.extracted_params?.papers || []
+                    if (allPapers.length > 0) {
+                        setVisualizationPapers(convertToVizPapers(allPapers))
+                    }
 
                     const taskId = Date.now().toString()
                     setCurrentTaskId(taskId)
@@ -1500,8 +1538,17 @@ export function UnifiedAssistant() {
                             </button>
                         </div>
                         {conversation.currentPapers.length > 0 && (
-                            <div className="mt-2 text-xs text-gray-500">
-                                💡 当前有 {conversation.currentPapers.length} 篇论文，可以说"分析第N篇"或"找类似的论文"
+                            <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                                <span>💡 当前有 {conversation.currentPapers.length} 篇论文，可以说"分析第N篇"或"找类似的论文"</span>
+                                <button
+                                    onClick={() => {
+                                        setVisualizationPapers(convertToVizPapers(conversation.currentPapers))
+                                        setShowVisualization(true)
+                                    }}
+                                    className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs transition-colors"
+                                >
+                                    📊 可视化
+                                </button>
                             </div>
                         )}
                     </div>
@@ -1510,6 +1557,33 @@ export function UnifiedAssistant() {
 
             {selectedPaper && (
                 <PDFViewer paper={selectedPaper} onClose={() => setSelectedPaper(null)} />
+            )}
+
+            {showVisualization && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+                    <div className="bg-gray-900 rounded-xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+                        <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                📊 论文可视化分析
+                                <span className="text-sm text-gray-400 font-normal">
+                                    ({visualizationPapers.length} 篇论文)
+                                </span>
+                            </h3>
+                            <button
+                                onClick={() => setShowVisualization(false)}
+                                className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                            <VisualizationDashboard
+                                externalPapers={visualizationPapers}
+                                compact={true}
+                            />
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )
