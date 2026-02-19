@@ -57,6 +57,16 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks (created_at DESC)
     ''')
     
+    try:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN task_type TEXT")
+    except sqlite3.OperationalError:
+        pass
+    
+    try:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN plan TEXT")
+    except sqlite3.OperationalError:
+        pass
+    
     conn.commit()
     conn.close()
 

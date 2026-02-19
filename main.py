@@ -267,11 +267,6 @@ async def list_tasks_endpoint(limit: int = 50):
         "tasks": tasks
     })
 
-@app.get("/tasks")
-async def list_tasks_endpoint():
-    result = list_tasks()
-    return JSONResponse(content=result)
-
 @app.get("/tasks/{task_id}")
 async def get_task_endpoint(task_id: str):
     task = get_task(task_id)
@@ -288,6 +283,7 @@ async def get_task_endpoint(task_id: str):
 
 @app.post("/tasks")
 async def save_task_endpoint(request: SaveTaskRequest):
+    print(f"[save_task_endpoint] Received request: {request}")
     result = save_task(
         request.task_id, 
         request.task, 
@@ -296,6 +292,7 @@ async def save_task_endpoint(request: SaveTaskRequest):
         request.task_type,
         request.plan
     )
+    print(f"[save_task_endpoint] Result: {result}")
     if result.get("success"):
         return JSONResponse(content={
             "success": True,

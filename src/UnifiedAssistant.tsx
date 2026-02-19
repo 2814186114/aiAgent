@@ -885,7 +885,8 @@ export function UnifiedAssistant() {
 
     const saveTask = async (taskId: string, taskText: string, taskTypeValue: string, answer: string, plan: PlanTask[]) => {
         try {
-            await fetch('http://localhost:8000/tasks', {
+            console.log('[saveTask] Saving task:', { taskId, taskText, taskTypeValue, answer, plan })
+            const response = await fetch('http://localhost:8000/tasks', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -897,6 +898,8 @@ export function UnifiedAssistant() {
                     plan: plan
                 })
             })
+            const data = await response.json()
+            console.log('[saveTask] Response:', data)
             setRefreshTrigger(prev => prev + 1)
         } catch (e) {
             console.error('Failed to save task:', e)
