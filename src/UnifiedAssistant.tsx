@@ -97,7 +97,7 @@ interface ConversationContext {
 
 function PaperCard({ paper, onClick }: { paper: Paper, onClick: () => void }) {
     return (
-        <div 
+        <div
             onClick={onClick}
             className="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-blue-500 transition-all cursor-pointer hover:shadow-lg hover:-translate-y-1"
         >
@@ -142,7 +142,7 @@ function PDFViewer({ paper, onClose }: { paper: Paper, onClose: () => void }) {
                         <h3 className="text-white font-semibold">{paper.title}</h3>
                         <p className="text-gray-400 text-sm">{paper.authors?.join(', ')}</p>
                     </div>
-                    <button 
+                    <button
                         onClick={onClose}
                         className="p-2 hover:bg-gray-700 rounded-lg text-gray-400"
                     >
@@ -150,7 +150,7 @@ function PDFViewer({ paper, onClose }: { paper: Paper, onClose: () => void }) {
                     </button>
                 </div>
                 <div className="flex-1 bg-white">
-                    <iframe 
+                    <iframe
                         src={paper.pdf_url}
                         className="w-full h-full"
                         title={paper.title}
@@ -818,10 +818,11 @@ export function UnifiedAssistant() {
     const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null)
     const [agentSteps, setAgentSteps] = useState<AgentStep[]>([])
     const [taskSteps, setTaskSteps] = useState<Record<string, TaskStep[]>>({})
+    const [streamingContent, setStreamingContent] = useState<string>("")
     const wsRef = useRef<WebSocket | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const stepOutputsRef = useRef<Record<string, any>>({})
-    
+
     const [conversation, setConversation] = useState<ConversationContext>({
         messages: [],
         currentPapers: [],
@@ -841,7 +842,7 @@ export function UnifiedAssistant() {
     useEffect(() => {
         stepOutputsRef.current = stepOutputs
     }, [stepOutputs])
-    
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [tasks, stepOutputs, progress, expandedSteps])
@@ -890,7 +891,7 @@ export function UnifiedAssistant() {
                 })
                 setTasks(savedTask.plan || [])
                 setCurrentTaskId(taskId)
-                
+
                 if (savedTask.plan) {
                     const newExpanded = new Set<string>()
                     savedTask.plan.forEach((t: PlanTask) => {
@@ -916,7 +917,7 @@ export function UnifiedAssistant() {
             content: task.trim(),
             timestamp: new Date().toISOString()
         }
-        
+
         setConversation(prev => ({
             ...prev,
             messages: [...prev.messages, userMessage]
@@ -933,6 +934,7 @@ export function UnifiedAssistant() {
         setExpandedSteps(new Set())
         setAgentSteps([])
         setTaskSteps({})
+        setStreamingContent('')
         setCurrentMessageId(userMessageId)
 
         try {
@@ -961,6 +963,8 @@ export function UnifiedAssistant() {
                 console.log('WebSocket message received:', data.type)
                 if (data.type === 'progress') {
                     setProgress(data)
+                } else if (data.type === 'stream') {
+                    setStreamingContent(data.full_content || '')
                 } else if (data.type === 'step') {
                     setAgentSteps(prev => [...prev, {
                         step_type: data.step_type,
@@ -1006,7 +1010,7 @@ export function UnifiedAssistant() {
                         newSet.add(data.task_id)
                         return newSet
                     })
-                    
+
                     if (data.output?.papers) {
                         setConversation(prev => ({
                             ...prev,
@@ -1020,12 +1024,13 @@ export function UnifiedAssistant() {
                         setTaskType(res.task_type)
                     }
                     setLoading(false)
-                    
+                    setStreamingContent('')
+
                     const planWithOutputs = res.plan ? res.plan.map((t: any) => ({
                         ...t,
                         output: stepOutputsRef.current[t.task_id] || t.output
                     })) : []
-                    
+
                     const assistantMessage: ConversationMessage = {
                         id: Date.now().toString(),
                         role: 'assistant',
@@ -1036,16 +1041,16 @@ export function UnifiedAssistant() {
                         plan: planWithOutputs,
                         taskType: res.task_type
                     }
-                    
+
                     setConversation(prev => ({
                         ...prev,
                         messages: [...prev.messages, assistantMessage]
                     }))
-                    
+
                     const taskId = Date.now().toString()
                     setCurrentTaskId(taskId)
                     saveTask(taskId, task.trim(), res.task_type, res.final_answer, res.plan)
-                    
+
                     setTask('')
                     ws.close()
                 } else if (data.type === 'error') {
@@ -1075,7 +1080,7 @@ export function UnifiedAssistant() {
             setLoading(false)
         }
     }
-    
+
     const clearConversation = () => {
         setConversation({
             messages: [],
@@ -1089,7 +1094,7 @@ export function UnifiedAssistant() {
         setTaskType(null)
         setError(null)
     }
-    
+
     const selectPaperFromHistory = (messageIndex: number, paperIndex: number) => {
         const msg = conversation.messages[messageIndex]
         if (msg?.papers && msg.papers[paperIndex]) {
@@ -1121,7 +1126,7 @@ export function UnifiedAssistant() {
                     refreshTrigger={refreshTrigger}
                 />
             )}
-            
+
             <div className="flex-1 flex flex-col h-full overflow-hidden">
                 <div className="p-3 border-b border-gray-700 flex items-center justify-between bg-gray-800">
                     <button
@@ -1139,7 +1144,7 @@ export function UnifiedAssistant() {
                         🗑️
                     </button>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto p-6">
                     <div className="w-full max-w-4xl mx-auto">
                         {conversation.messages.map((msg, msgIdx) => (
@@ -1159,7 +1164,7 @@ export function UnifiedAssistant() {
                                                 </span>
                                             )}
                                         </div>
-                                        
+
                                         {msg.papers && msg.papers.length > 0 && (
                                             <div className="p-3 border-b border-gray-700">
                                                 <h4 className="text-xs font-medium text-gray-400 mb-2">
@@ -1167,7 +1172,7 @@ export function UnifiedAssistant() {
                                                 </h4>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                     {msg.papers.slice(0, 4).map((paper, paperIdx) => (
-                                                        <div 
+                                                        <div
                                                             key={paper.paper_id || paperIdx}
                                                             className="bg-gray-700 p-2 rounded border border-gray-600 hover:border-blue-500 cursor-pointer transition-all"
                                                             onClick={() => {
@@ -1192,29 +1197,27 @@ export function UnifiedAssistant() {
                                                 )}
                                             </div>
                                         )}
-                                        
+
                                         {msg.plan && msg.plan.length > 0 && (
                                             <div className="p-3 border-b border-gray-700">
                                                 <div className="space-y-2">
                                                     {msg.plan.map((step, stepIdx) => (
                                                         <div key={step.task_id || stepIdx} className="bg-gray-700/50 rounded-lg overflow-hidden">
-                                                            <div 
+                                                            <div
                                                                 className={`p-2 flex items-center justify-between cursor-pointer ${step.output ? 'hover:bg-gray-700' : ''}`}
                                                                 onClick={() => step.output && toggleStepExpansion(step.task_id)}
                                                             >
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className={`text-lg ${
-                                                                        step.status === 'completed' ? 'text-green-400' :
+                                                                    <span className={`text-lg ${step.status === 'completed' ? 'text-green-400' :
                                                                         step.status === 'in_progress' ? 'text-yellow-400' :
-                                                                        'text-gray-500'
-                                                                    }`}>
+                                                                            'text-gray-500'
+                                                                        }`}>
                                                                         {step.status === 'completed' ? '✅' : step.status === 'in_progress' ? '🔄' : '⭕'}
                                                                     </span>
-                                                                    <span className={`text-sm ${
-                                                                        step.status === 'completed' ? 'text-green-300' :
+                                                                    <span className={`text-sm ${step.status === 'completed' ? 'text-green-300' :
                                                                         step.status === 'in_progress' ? 'text-yellow-300' :
-                                                                        'text-gray-400'
-                                                                    }`}>
+                                                                            'text-gray-400'
+                                                                        }`}>
                                                                         {step.name}
                                                                     </span>
                                                                 </div>
@@ -1224,7 +1227,7 @@ export function UnifiedAssistant() {
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            
+
                                                             {expandedSteps.has(step.task_id) && step.output && (
                                                                 <div className="p-3 border-t border-gray-600 bg-gray-700/30">
                                                                     {step.output.papers && step.output.papers.length > 0 && (
@@ -1234,7 +1237,7 @@ export function UnifiedAssistant() {
                                                                             </h5>
                                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                                                 {step.output.papers.slice(0, 4).map((paper: Paper, paperIdx: number) => (
-                                                                                    <div 
+                                                                                    <div
                                                                                         key={paper.paper_id || paperIdx}
                                                                                         className="bg-gray-800 p-2 rounded border border-gray-600 hover:border-blue-500 cursor-pointer transition-all"
                                                                                         onClick={() => {
@@ -1259,20 +1262,20 @@ export function UnifiedAssistant() {
                                                                             )}
                                                                         </div>
                                                                     )}
-                                                                    
+
                                                                     {step.output.analysis && (
                                                                         <div>
                                                                             <h5 className="text-xs font-medium text-gray-400 mb-2">
                                                                                 📊 分析结果
                                                                             </h5>
                                                                             <div className="text-xs text-gray-300 whitespace-pre-wrap">
-                                                                                {typeof step.output.analysis === 'string' 
-                                                                                    ? step.output.analysis 
+                                                                                {typeof step.output.analysis === 'string'
+                                                                                    ? step.output.analysis
                                                                                     : JSON.stringify(step.output.analysis, null, 2)}
                                                                             </div>
                                                                         </div>
                                                                     )}
-                                                                    
+
                                                                     {step.output.report && (
                                                                         <div>
                                                                             <h5 className="text-xs font-medium text-gray-400 mb-2">
@@ -1283,8 +1286,19 @@ export function UnifiedAssistant() {
                                                                             </div>
                                                                         </div>
                                                                     )}
-                                                                    
-                                                                    {step.output.result && !step.output.papers && !step.output.analysis && !step.output.report && (
+
+                                                                    {step.output.answer && (
+                                                                        <div>
+                                                                            <h5 className="text-xs font-medium text-gray-400 mb-2">
+                                                                                💡 答案
+                                                                            </h5>
+                                                                            <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
+                                                                                {step.output.answer}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {step.output.result && !step.output.papers && !step.output.analysis && !step.output.report && !step.output.answer && (
                                                                         <div className="text-xs text-gray-300">
                                                                             {step.output.result}
                                                                         </div>
@@ -1296,7 +1310,7 @@ export function UnifiedAssistant() {
                                                 </div>
                                             </div>
                                         )}
-                                        
+
                                         <div className="p-3">
                                             <p className="text-gray-300 text-sm whitespace-pre-wrap">{msg.content}</p>
                                         </div>
@@ -1304,7 +1318,7 @@ export function UnifiedAssistant() {
                                 )}
                             </div>
                         ))}
-                        
+
                         {loading && (
                             <div className="mb-4">
                                 <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
@@ -1315,7 +1329,7 @@ export function UnifiedAssistant() {
                                             处理中...
                                         </span>
                                     </div>
-                                    
+
                                     {progress && (
                                         <div className="p-3 border-b border-gray-700">
                                             <div className="flex items-center justify-between mb-2">
@@ -1343,23 +1357,32 @@ export function UnifiedAssistant() {
                                             <p className="text-gray-400 text-xs mt-1">{progress.task}</p>
                                         </div>
                                     )}
-                                    
+
+                                    {streamingContent && (
+                                        <div className="p-3 border-b border-gray-700">
+                                            <h5 className="text-xs font-medium text-gray-400 mb-2">💡 正在生成回答...</h5>
+                                            <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
+                                                {streamingContent}
+                                                <span className="animate-pulse">▌</span>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {tasks.length > 0 && (
                                         <div className="p-3">
                                             <div className="flex flex-wrap gap-2">
                                                 {tasks.map((t, idx) => (
-                                                    <span key={t.task_id} className={`px-2 py-1 rounded text-xs ${
-                                                        t.status === 'completed' ? 'bg-green-900/30 text-green-300' :
+                                                    <span key={t.task_id} className={`px-2 py-1 rounded text-xs ${t.status === 'completed' ? 'bg-green-900/30 text-green-300' :
                                                         t.status === 'in_progress' ? 'bg-yellow-900/30 text-yellow-300 animate-pulse' :
-                                                        'bg-gray-700 text-gray-400'
-                                                    }`}>
+                                                            'bg-gray-700 text-gray-400'
+                                                        }`}>
                                                         {t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⭕'} {t.name}
                                                     </span>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {agentSteps.length > 0 && (
                                         <div className="p-3 border-b border-gray-700">
                                             <h5 className="text-xs font-medium text-gray-400 mb-2">🔍 执行过程</h5>
@@ -1373,7 +1396,7 @@ export function UnifiedAssistant() {
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {tasks.length > 0 && (
                                         <div className="p-3 border-b border-gray-700">
                                             <div className="space-y-2">
@@ -1382,18 +1405,16 @@ export function UnifiedAssistant() {
                                                     return (
                                                         <div key={t.task_id} className="bg-gray-700/50 rounded-lg p-2">
                                                             <div className="flex items-center gap-2 mb-1">
-                                                                <span className={`text-sm ${
-                                                                    t.status === 'completed' ? 'text-green-400' :
+                                                                <span className={`text-sm ${t.status === 'completed' ? 'text-green-400' :
                                                                     t.status === 'in_progress' ? 'text-yellow-400' :
-                                                                    'text-gray-500'
-                                                                }`}>
+                                                                        'text-gray-500'
+                                                                    }`}>
                                                                     {t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⭕'}
                                                                 </span>
-                                                                <span className={`text-xs ${
-                                                                    t.status === 'completed' ? 'text-green-300' :
+                                                                <span className={`text-xs ${t.status === 'completed' ? 'text-green-300' :
                                                                     t.status === 'in_progress' ? 'text-yellow-300' :
-                                                                    'text-gray-400'
-                                                                }`}>
+                                                                        'text-gray-400'
+                                                                    }`}>
                                                                     {t.name}
                                                                 </span>
                                                             </div>
@@ -1413,7 +1434,7 @@ export function UnifiedAssistant() {
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {error && (
                                         <div className="p-3 bg-red-900/20 text-red-300 text-xs">
                                             ❌ {error}
@@ -1422,7 +1443,7 @@ export function UnifiedAssistant() {
                                 </div>
                             </div>
                         )}
-                        
+
                         {conversation.messages.length === 0 && !loading && (
                             <div className="text-center py-16">
                                 <div className="text-5xl mb-4">📚</div>
@@ -1441,11 +1462,11 @@ export function UnifiedAssistant() {
                                 </div>
                             </div>
                         )}
-                        
+
                         <div ref={messagesEndRef} />
                     </div>
                 </div>
-                
+
                 <div className="p-4 border-t border-gray-700 bg-gray-800">
                     <div className="w-full max-w-4xl mx-auto">
                         <div className="flex gap-2">
@@ -1483,7 +1504,7 @@ export function UnifiedAssistant() {
                     </div>
                 </div>
             </div>
-            
+
             {selectedPaper && (
                 <PDFViewer paper={selectedPaper} onClose={() => setSelectedPaper(null)} />
             )}

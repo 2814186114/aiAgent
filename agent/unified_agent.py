@@ -102,6 +102,42 @@ class UnifiedAgent:
             print(f"[Agent] LLM call failed: {e}")
             return f"LLM 调用失败: {str(e)}"
     
+    async def _call_llm_stream(self, prompt: str, temperature: float = 0.7, callback: Optional[Callable] = None):
+        if not self.client:
+            yield "LLM 未配置，无法生成回复。请配置 API Key。"
+            return
+        
+        try:
+            stream = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+                stream=True
+            )
+            
+            full_content = ""
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_content += content
+                    if callback:
+                        await callback({
+                            "type": "stream",
+                            "content": content,
+                            "full_content": full_content
+                        })
+                    yield content
+                    
+        except Exception as e:
+            print(f"[Agent] LLM stream call failed: {e}")
+            error_msg = f"LLM 调用失败: {str(e)}"
+            if callback:
+                await callback({
+                    "type": "error",
+                    "error": error_msg
+                })
+            yield error_msg
+    
     async def _analyze_task_with_llm(self, task: str) -> Dict[str, Any]:
         if not self.client:
             return self._fallback_task_analysis(task)
@@ -814,7 +850,7 @@ class UnifiedAgent:
             
             if key_concepts:
                 search_query = " ".join(key_concepts[:3])
-                papers = await self._search_arxiv(search_query, max_results=5)
+                papers = await self._search_papers(search_query, years=3, max_results=5, sort_by="relevance")
             else:
                 papers = []
             
@@ -913,6 +949,58 @@ class UnifiedAgent:
         
         return {"output_type": "text", "result": "步骤完成"}
     
+    async def _execute_question_answering_stream(
+        self,
+        task: str,
+        callback: Optional[Callable] = None,
+        results: Optional[Dict] = None,
+        intent_summary: str = ""
+    ) -> Dict[str, Any]:
+        if results is None:
+            results = {
+                "task": task,
+                "started_at": datetime.now().isoformat(),
+                "steps": [],
+                "plan": [],
+                "final_answer": ""
+            }
+        
+        await self._send_update("executing", 20, "正在生成回答...", callback)
+        await self._add_step('thought', f'问题解答模式：直接生成答案', callback)
+        
+        prompt = f"""请回答以下问题，要求：
+1. 回答要清晰、准确、有条理
+2. 如果涉及概念解释，请用通俗易懂的语言
+3. 如果有实际应用场景，请举例说明
+4. 回答要完整，不要过于简短
+
+问题：{task}
+
+请直接回答，不需要其他格式："""
+        
+        full_answer = ""
+        async for chunk in self._call_llm_stream(prompt, temperature=0.7, callback=callback):
+            full_answer += chunk
+        
+        results["task_type"] = TaskType.QUESTION_ANSWERING.value
+        results["final_answer"] = full_answer
+        results["completed_at"] = datetime.now().isoformat()
+        results["plan"] = [{
+            "step_id": "answer",
+            "name": "生成回答",
+            "description": "直接回答用户问题",
+            "output_type": "answer",
+            "status": "completed",
+            "output": {"answer": full_answer, "output_type": "answer"}
+        }]
+        
+        await self._send_update("completed", 100, "回答完成！", callback)
+        
+        return {
+            "success": True,
+            **results
+        }
+    
     async def execute_task(
         self,
         task: str,
@@ -957,6 +1045,9 @@ class UnifiedAgent:
             task_type = TaskType.EXPERIMENT_MANAGEMENT
         elif "question" in task_type_str.lower():
             task_type = TaskType.QUESTION_ANSWERING
+        
+        if task_type == TaskType.QUESTION_ANSWERING:
+            return await self._execute_question_answering_stream(task, callback, results, intent_summary)
         
         await self._send_update("planning", 10, "正在规划执行步骤...", callback)
         
@@ -1029,7 +1120,10 @@ class UnifiedAgent:
                 await self._send_step_output(step.step_id, step_result, callback)
                 await self._update_step_status(step, TaskStatus.COMPLETED, callback)
                 
-                final_results.append(f"**{step.name}**: {step_result.get('result', '完成')}")
+                if step.step_id == "answer" and "answer" in step_result:
+                    final_results.append(f"**{step.name}**:\n\n{step_result['answer']}")
+                else:
+                    final_results.append(f"**{step.name}**: {step_result.get('result', '完成')}")
                 
             except Exception as e:
                 error_msg = str(e)
