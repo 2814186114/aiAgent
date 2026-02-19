@@ -32,6 +32,13 @@ try:
 except ImportError:
     MULTI_SOURCE_AVAILABLE = False
 
+try:
+    from .calendar_service import create_schedule, list_schedules, calendar_service
+    CALENDAR_AVAILABLE = True
+except ImportError:
+    CALENDAR_AVAILABLE = False
+    calendar_service = None
+
 class TaskType(Enum):
     QUESTION_ANSWERING = "question_answering"
     LITERATURE_RESEARCH = "literature_research"
@@ -648,7 +655,8 @@ class UnifiedAgent:
 {{
     "title": "事件标题",
     "date": "日期（YYYY-MM-DD格式，如果不确定请推断）",
-    "time": "时间（如 14:00-16:00）",
+    "time": "时间（如 14:00-16:00 或 14:00）",
+    "duration_hours": 时长（小时数，默认1）,
     "participants": ["参与者列表"],
     "location": "地点（如果有）",
     "description": "详细描述"
@@ -667,6 +675,7 @@ class UnifiedAgent:
                         "title": task,
                         "date": datetime.now().strftime("%Y-%m-%d"),
                         "time": "待定",
+                        "duration_hours": 1,
                         "participants": [],
                         "location": "",
                         "description": task
@@ -676,6 +685,7 @@ class UnifiedAgent:
                     "title": task,
                     "date": datetime.now().strftime("%Y-%m-%d"),
                     "time": "待定",
+                    "duration_hours": 1,
                     "participants": [],
                     "location": "",
                     "description": task
@@ -684,34 +694,91 @@ class UnifiedAgent:
             return {
                 "output_type": "schedule_info",
                 "schedule_info": schedule_info,
-                "result": "已解析日程信息"
+                "result": f"已解析日程：{schedule_info.get('title', '未命名')}，时间：{schedule_info.get('date', '')} {schedule_info.get('time', '')}"
             }
         
         elif step.step_id == "create":
             schedule_info = context.get("schedule_info", {})
             
+            title = schedule_info.get("title", "未命名事件")
+            date_str = schedule_info.get("date", datetime.now().strftime("%Y-%m-%d"))
+            time_str = schedule_info.get("time", "09:00")
+            duration = schedule_info.get("duration_hours", 1)
+            location = schedule_info.get("location", "")
+            description = schedule_info.get("description", "")
+            participants = schedule_info.get("participants", [])
+            
+            try:
+                if "-" in time_str:
+                    time_parts = time_str.split("-")
+                    start_time_str = time_parts[0].strip()
+                    end_time_str = time_parts[1].strip()
+                else:
+                    start_time_str = time_str
+                    hour = int(start_time_str.split(":")[0])
+                    end_hour = hour + duration
+                    end_time_str = f"{end_hour:02d}:{start_time_str.split(':')[1] if ':' in start_time_str else '00'}"
+                
+                start_datetime = datetime.strptime(f"{date_str} {start_time_str}", "%Y-%m-%d %H:%M")
+                end_datetime = datetime.strptime(f"{date_str} {end_time_str}", "%Y-%m-%d %H:%M")
+            except:
+                start_datetime = datetime.now() + timedelta(hours=1)
+                end_datetime = start_datetime + timedelta(hours=1)
+            
+            schedule_result = {
+                "id": f"evt_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "title": title,
+                "date": date_str,
+                "time": time_str,
+                "start_datetime": start_datetime.isoformat(),
+                "end_datetime": end_datetime.isoformat(),
+                "location": location,
+                "participants": participants,
+                "description": description,
+                "synced_to_calendar": False
+            }
+            
+            if CALENDAR_AVAILABLE and calendar_service:
+                try:
+                    cal_result = await create_schedule(
+                        title=title,
+                        start_time=start_datetime.isoformat(),
+                        end_time=end_datetime.isoformat(),
+                        description=description,
+                        location=location,
+                        reminder_minutes=30
+                    )
+                    
+                    if cal_result.get("success"):
+                        schedule_result["id"] = cal_result.get("event_id", schedule_result["id"])
+                        schedule_result["synced_to_calendar"] = cal_result.get("synced_to_calendar", False)
+                        schedule_result["calendar_message"] = cal_result.get("message", "")
+                except Exception as e:
+                    print(f"[Schedule] Calendar integration failed: {e}")
+            
+            result_msg = f"日程「{title}」已创建"
+            if schedule_result.get("synced_to_calendar"):
+                result_msg += "并同步到系统日历"
+            result_msg += f"，时间：{date_str} {time_str}"
+            
             return {
                 "output_type": "schedule",
-                "schedule": {
-                    "id": f"evt_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    "title": schedule_info.get("title", "未命名事件"),
-                    "date": schedule_info.get("date", ""),
-                    "time": schedule_info.get("time", ""),
-                    "location": schedule_info.get("location", "待定"),
-                    "participants": schedule_info.get("participants", []),
-                    "description": schedule_info.get("description", "")
-                },
-                "result": "日程已创建"
+                "schedule": schedule_result,
+                "result": result_msg
             }
         
         elif step.step_id == "remind":
+            schedule_info = context.get("schedule_info", {})
+            schedule = context.get("schedule", {})
+            
             return {
                 "output_type": "reminder",
                 "reminder": {
                     "time": "事件前30分钟",
                     "method": "系统通知"
                 },
-                "result": "提醒已设置"
+                "schedule": schedule,
+                "result": f"已设置提醒：事件前30分钟提醒"
             }
         
         return {"output_type": "text", "result": "步骤完成"}
@@ -1113,6 +1180,8 @@ class UnifiedAgent:
                     context["analysis"] = step_result.get("analysis", {})
                 elif step.step_id == "parse":
                     context["schedule_info"] = step_result.get("schedule_info", {})
+                elif step.step_id == "create":
+                    context["schedule"] = step_result.get("schedule", {})
                 elif step.step_id == "analyze_request":
                     context["analysis"] = step_result.get("analysis", {})
                 elif step.step_id == "understand":
