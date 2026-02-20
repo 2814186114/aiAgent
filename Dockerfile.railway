@@ -1,0 +1,45 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    nginx \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY package*.json ./
+RUN npm ci
+
+COPY agent/ ./agent/
+COPY main.py .
+COPY server.js .
+COPY src/ ./src/
+COPY index.html .
+COPY public/ ./public/
+COPY postcss.config.js .
+COPY tailwind.config.js .
+COPY vite.config.ts .
+COPY tsconfig.json .
+COPY tsconfig.node.json .
+
+RUN npm run build
+
+COPY nginx.railway.conf /etc/nginx/nginx.conf
+
+RUN mkdir -p /app/data /app/chroma_db /var/log/nginx /var/lib/nginx
+
+ENV PORT=8080
+EXPOSE 8080
+
+COPY start.railway.sh .
+RUN chmod +x start.railway.sh
+
+CMD ["./start.railway.sh"]
