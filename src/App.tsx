@@ -87,8 +87,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 ]
 
 function AppContent() {
-    const { user, logout } = useAuth()
-    const [showLoginModal, setShowLoginModal] = useState(false)
+    const { user, loading, logout } = useAuth()
     const [activeTab, setActiveTab] = useState<Tab>('unified')
     const [showSidebar, setShowSidebar] = useState(true)
     const [messages, setMessages] = useState<Message[]>([])
@@ -254,6 +253,21 @@ function AppContent() {
             }
         }
     }, [currentAnswer, currentSteps, isProcessing, messages])
+
+    if (loading) {
+        return (
+            <div className="h-screen flex items-center justify-center bg-gray-900">
+                <div className="text-center">
+                    <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-400">加载中...</p>
+                </div>
+            </div>
+        )
+    }
+
+    if (!user) {
+        return <LoginModal onClose={() => { }} />
+    }
 
     const detectInputMode = (text: string): { mode: InputMode; hint: string; processedText: string } => {
         const lowerText = text.toLowerCase().trim()
@@ -545,26 +559,17 @@ function AppContent() {
                                 <span className="text-sm">{isConnected ? '已连接' : '未连接'}</span>
                             </div>
                             <div className="flex items-center gap-3 ml-4">
-                                {user ? (
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-600 dark:text-gray-300">
-                                            👤 {user.username}
-                                        </span>
-                                        <button
-                                            onClick={logout}
-                                            className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                                        >
-                                            登出
-                                        </button>
-                                    </div>
-                                ) : (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                                        👤 {user.username}
+                                    </span>
                                     <button
-                                        onClick={() => setShowLoginModal(true)}
-                                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                        onClick={logout}
+                                        className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                                     >
-                                        登录
+                                        登出
                                     </button>
-                                )}
+                                </div>
                             </div>
                         </div>
 
@@ -959,10 +964,6 @@ function AppContent() {
                     )}
                 </div>
             </div>
-
-            {showLoginModal && (
-                <LoginModal onClose={() => setShowLoginModal(false)} />
-            )}
         </div>
     )
 }
