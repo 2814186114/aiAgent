@@ -1,3 +1,21 @@
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY src/ ./src/
+COPY index.html .
+COPY public/ ./public/
+COPY postcss.config.js .
+COPY tailwind.config.js .
+COPY vite.config.ts .
+COPY tsconfig.json .
+COPY tsconfig.node.json .
+
+RUN npm run build
+
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -16,21 +34,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --only=production
 
 COPY agent/ ./agent/
 COPY main.py .
 COPY server.js .
-COPY src/ ./src/
-COPY index.html .
-COPY public/ ./public/
-COPY postcss.config.js .
-COPY tailwind.config.js .
-COPY vite.config.ts .
-COPY tsconfig.json .
-COPY tsconfig.node.json .
 
-RUN npm run build
+COPY --from=frontend-builder /app/dist ./dist
 
 COPY nginx.railway.conf /etc/nginx/nginx.conf
 
