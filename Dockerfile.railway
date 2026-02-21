@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm ci --include=optional
+RUN npm ci --include=optional && npm cache clean --force
 
 RUN npm install @rollup/rollup-linux-x64-gnu --save-optional || true
 
@@ -22,27 +22,30 @@ COPY vite.config.ts .
 COPY tsconfig.json .
 COPY tsconfig.node.json .
 
-RUN npm run build
+RUN npm run build && rm -rf node_modules
 
 FROM python:3.11-slim
 
 WORKDIR /app
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
     nginx \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && rm -rf ~/.cache/pip
 
 COPY package*.json ./
-RUN npm ci --only=production --ignore-scripts || npm install --production --ignore-scripts
+RUN npm ci --only=production --ignore-scripts && npm cache clean --force
 
 COPY agent/ ./agent/
 COPY main.py .
