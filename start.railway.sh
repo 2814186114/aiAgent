@@ -2,16 +2,21 @@
 
 cd /app
 
+export PYTHON_HOST=127.0.0.1
 export PYTHON_PORT=8000
 export NODE_PORT=3001
-export PORT=${PORT:-8080}
 
+echo "Starting Python server on $PYTHON_HOST:$PYTHON_PORT..."
+uvicorn main:app --host 127.0.0.1 --port $PYTHON_PORT > /var/log/python.log 2>&1 &
+PYTHON_PID=$!
+
+sleep 5
+
+echo "Starting Node.js server..."
 node server.js > /var/log/node.log 2>&1 &
-echo "Node.js server started on port $NODE_PORT"
+NODE_PID=$!
 
-uvicorn main:app --host 0.0.0.0 --port $PYTHON_PORT > /var/log/python.log 2>&1 &
-echo "Python server started on port $PYTHON_PORT"
+sleep 2
 
-sleep 3
-
+echo "Starting Nginx on port ${PORT:-8080}..."
 nginx -g 'daemon off;'

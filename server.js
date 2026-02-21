@@ -13,8 +13,9 @@ const io = new Server(httpServer, {
     },
 });
 
-const PORT = 3001;
-const PYTHON_PORT = 8000;
+const PYTHON_HOST = process.env.PYTHON_HOST || '127.0.0.1';
+const PYTHON_PORT = process.env.PYTHON_PORT || 8000;
+const PORT = process.env.PORT || 3001;
 
 app.use(express.json());
 
@@ -29,7 +30,7 @@ app.get('/health', (req, res) => {
 
 app.get('/api/status', async (req, res) => {
     try {
-        const response = await fetch(`http://localhost:${PYTHON_PORT}/health`);
+        const response = await fetch(`http://${PYTHON_HOST}:${PYTHON_PORT}/health`);
         const data = await response.json();
         res.json({
             node: 'running',
@@ -53,7 +54,7 @@ const reconnectInterval = 3000;
 function connectToPython() {
     console.log('Attempting to connect to Python WebSocket...');
 
-    pythonWs = new WebSocket(`ws://localhost:${PYTHON_PORT}/ws`);
+    pythonWs = new WebSocket(`ws://${PYTHON_HOST}:${PYTHON_PORT}/ws`);
 
     pythonWs.on('open', () => {
         console.log('Connected to Python WebSocket');
@@ -112,7 +113,7 @@ io.on('connection', (socket) => {
             }));
         } else {
             try {
-                const response = await fetch(`http://localhost:${PYTHON_PORT}/process`, {
+                const response = await fetch(`http://${PYTHON_HOST}:${PYTHON_PORT}/process`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
