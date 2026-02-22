@@ -19,4 +19,7 @@ NODE_PID=$!
 sleep 2
 
 echo "Starting Nginx on port ${PORT:-8080}..."
-nginx -g 'daemon off;'
+nginx -g 'daemon off;' &
+NGINX_PID=$!
+
+wait $PYTHON_PID $NODE_PID $NGINX_PID
