@@ -7,13 +7,13 @@ export PYTHON_PORT=8000
 export NODE_PORT=3001
 
 echo "Starting Python server on $PYTHON_HOST:$PYTHON_PORT..."
-uvicorn main:app --host 127.0.0.1 --port $PYTHON_PORT > /var/log/python.log 2>&1 &
+uvicorn main:app --host 127.0.0.1 --port $PYTHON_PORT 2>&1 &
 PYTHON_PID=$!
 
 sleep 5
 
 echo "Starting Node.js server..."
-node server.js > /var/log/node.log 2>&1 &
+node server.js 2>&1 &
 NODE_PID=$!
 
 sleep 2
