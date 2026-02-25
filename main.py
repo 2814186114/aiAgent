@@ -41,6 +41,9 @@ from agent.auth import (
     create_conversation, save_message, get_conversation, 
     list_conversations, delete_conversation, search_conversations
 )
+from agent.long_term_memory import get_long_term_memory
+from agent.memory_context import get_memory_context_manager
+from agent.agent_with_memory import get_agent_with_memory
 
 app = FastAPI(title="Academic Assistant Agent - Python Service")
 
@@ -57,8 +60,10 @@ agent = ReActAgent()
 planning_agent = PlanningAgent()
 unified_agent = UnifiedAgent()
 reflection_agent = ReflectionAgent(unified_agent)
+agent_with_memory = get_agent_with_memory()
 
 REFLECTION_ENABLED = True
+MEMORY_ENABLED = True
 
 active_websockets: List[WebSocket] = []
 
@@ -697,6 +702,101 @@ try:
 except ImportError:
     pass
 
+class MemoryRecallRequest(BaseModel):
+    query: str
+    user_id: Optional[str] = None
+    n_results: Optional[int] = 5
+
+class MemorySaveConversationRequest(BaseModel):
+    user_id: str
+    conversation_id: str
+    user_message: str
+    assistant_message: str
+    metadata: Optional[Dict[str, Any]] = None
+
+@app.get("/memory/statistics")
+async def get_memory_statistics():
+    memory = get_long_term_memory()
+    result = memory.get_statistics()
+    return JSONResponse(content=result)
+
+@app.post("/memory/conversations")
+async def save_memory_conversation(request: MemorySaveConversationRequest):
+    memory = get_long_term_memory()
+    result = memory.save_conversation(
+        user_id=request.user_id,
+        conversation_id=request.conversation_id,
+        user_message=request.user_message,
+        assistant_message=request.assistant_message,
+        metadata=request.metadata
+    )
+    return JSONResponse(content=result)
+
+@app.post("/memory/recall/conversations")
+async def recall_memory_conversations(request: MemoryRecallRequest):
+    memory = get_long_term_memory()
+    results = memory.recall_conversations(
+        query=request.query,
+        user_id=request.user_id,
+        n_results=request.n_results
+    )
+    return JSONResponse(content={
+        "success": True,
+        "results": results
+    })
+
+@app.post("/memory/recall/tasks")
+async def recall_memory_tasks(request: MemoryRecallRequest):
+    memory = get_long_term_memory()
+    results = memory.recall_similar_tasks(
+        task=request.query,
+        user_id=request.user_id,
+        n_results=request.n_results
+    )
+    return JSONResponse(content={
+        "success": True,
+        "results": results
+    })
+
+@app.post("/memory/recall/knowledge")
+async def recall_memory_knowledge(request: MemoryRecallRequest):
+    memory = get_long_term_memory()
+    results = memory.search_knowledge(
+        query=request.query,
+        user_id=request.user_id,
+        n_results=request.n_results
+    )
+    return JSONResponse(content={
+        "success": True,
+        "results": results
+    })
+
+@app.get("/memory/users/{user_id}/recent-tasks")
+async def get_memory_recent_tasks(user_id: str, limit: int = 10):
+    memory = get_long_term_memory()
+    results = memory.get_user_recent_tasks(user_id, limit)
+    return JSONResponse(content={
+        "success": True,
+        "results": results
+    })
+
+@app.get("/memory/users/{user_id}/papers")
+async def get_memory_user_papers(user_id: str, limit: int = 50):
+    memory = get_long_term_memory()
+    results = memory.get_user_papers(user_id, limit)
+    return JSONResponse(content={
+        "success": True,
+        "results": results
+    })
+
+@app.get("/memory/available")
+async def check_memory_available():
+    memory = get_long_term_memory()
+    return JSONResponse(content={
+        "success": True,
+        "available": memory.is_available()
+    })
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -827,6 +927,7 @@ try:
                 if data.get("type") == "start_planning":
                     task = data.get("task", "")
                     context = data.get("context", {})
+                    user_id = context.get("user_id", "anonymous")
                     
                     print(f"[WS] Task: {task[:100] if task else 'EMPTY'}...")
                     print(f"[WS] Context keys: {list(context.keys()) if context else 'None'}")
@@ -845,7 +946,16 @@ try:
                     
                     try:
                         print(f"[WS] Starting task execution...")
-                        if REFLECTION_ENABLED:
+                        
+                        if MEMORY_ENABLED and agent_with_memory.is_memory_available():
+                            print(f"[WS] Using agent with long-term memory")
+                            result = await agent_with_memory.execute_task(
+                                task=task,
+                                callback=callback,
+                                context_input=context,
+                                user_id=user_id
+                            )
+                        elif REFLECTION_ENABLED:
                             result = await reflection_agent.execute_task(task, callback=callback, context=context)
                         else:
                             result = await unified_agent.execute_task(task, callback=callback, context_input=context)
