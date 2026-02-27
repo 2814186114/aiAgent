@@ -75,12 +75,12 @@ class UnifiedAgent:
         
         if self.llm_provider == "deepseek":
             api_key = os.getenv("DEEPSEEK_API_KEY")
-            base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+            base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         else:
             api_key = os.getenv("OPENAI_API_KEY")
             base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         
-        if not api_key or api_key == "your_api_key_here":
+        if not api_key or api_key == "your_api_key_here" or api_key == "":
             return None
         
         return OpenAI(api_key=api_key, base_url=base_url)

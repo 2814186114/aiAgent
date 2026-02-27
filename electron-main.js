@@ -9,10 +9,8 @@ if (isDev) {
 }
 
 let mainWindow = null;
-let nodeServerProcess = null;
 let pythonProcess = null;
 
-const NODE_PORT = 3001;
 const PYTHON_PORT = 8000;
 
 function createWindow() {
@@ -95,14 +93,6 @@ async function startServices() {
     const errors = [];
 
     try {
-        console.log('Starting Node.js server...');
-        nodeServerProcess = await spawnProcess('node', ['server.js'], 'NodeServer');
-        console.log('Node.js server started successfully');
-    } catch (err) {
-        errors.push(`Node.js server failed to start: ${err.message}`);
-    }
-
-    try {
         console.log('Starting Python FastAPI server...');
         const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
         pythonProcess = await spawnProcess(
@@ -119,10 +109,6 @@ async function startServices() {
 }
 
 function stopServices() {
-    if (nodeServerProcess) {
-        nodeServerProcess.kill();
-        nodeServerProcess = null;
-    }
     if (pythonProcess) {
         pythonProcess.kill();
         pythonProcess = null;
@@ -131,23 +117,6 @@ function stopServices() {
 
 async function checkServicesHealth() {
     const http = require('http');
-
-    const checkHealth = (port, name) => {
-        return new Promise((resolve) => {
-            const req = http.get(`http://localhost:${port}/health`, (res) => {
-                resolve({ name, status: res.statusCode === 200 ? 'healthy' : 'unhealthy' });
-            });
-            req.on('error', () => {
-                resolve({ name, status: 'unhealthy' });
-            });
-            req.setTimeout(2000, () => {
-                req.destroy();
-                resolve({ name, status: 'timeout' });
-            });
-        });
-    };
-
-    const nodeHealth = await checkHealth(NODE_PORT, 'Node.js');
 
     const pythonHealth = await new Promise((resolve) => {
         const req = http.get(`http://localhost:${PYTHON_PORT}/ping`, (res) => {
@@ -162,7 +131,7 @@ async function checkServicesHealth() {
         });
     });
 
-    return [nodeHealth, pythonHealth];
+    return [pythonHealth];
 }
 
 app.whenReady().then(async () => {

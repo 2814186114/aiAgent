@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { io, Socket } from 'socket.io-client'
 import { PPTGenerator } from './PPTGenerator'
 import { EnhancedStepCard } from './EnhancedStepCard'
 import { TaskSidebar } from './TaskSidebar'
@@ -65,8 +64,6 @@ interface Message {
     taskId?: string
 }
 
-const SOCKET_URL = 'http://localhost:3001'
-
 type Tab = 'unified' | 'chat' | 'research' | 'literature' | 'review' | 'experiment' | 'ppt' | 'visualization'
 type InputMode = 'chat' | 'record' | 'query'
 
@@ -108,7 +105,7 @@ function AppContent() {
     const [planningLoading, setPlanningLoading] = useState(false)
     const [planningError, setPlanningError] = useState<string | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
-    const socketRef = useRef<Socket | null>(null)
+    const chatWsRef = useRef<WebSocket | null>(null)
     const planningWsRef = useRef<WebSocket | null>(null)
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -159,62 +156,61 @@ function AppContent() {
     }
 
     const connectSocket = useCallback(() => {
-        if (socketRef.current?.connected) return
+        if (chatWsRef.current?.readyState === WebSocket.OPEN) return
 
-        socketRef.current = io(SOCKET_URL, {
-            transports: ['websocket', 'polling'],
-            reconnection: true,
-            reconnectionAttempts: 10,
-            reconnectionDelay: 1000,
-        })
+        const ws = new WebSocket('ws://localhost:8000/ws/chat')
+        chatWsRef.current = ws
 
-        const socket = socketRef.current
-
-        socket.on('connect', () => {
-            console.log('Connected to server')
+        ws.onopen = () => {
+            console.log('Connected to Python WebSocket')
             setIsConnected(true)
-        })
+        }
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server')
+        ws.onclose = () => {
+            console.log('Disconnected from Python WebSocket')
             setIsConnected(false)
-        })
-
-        socket.on('connection-status', (data) => {
-            console.log('Connection status:', data)
-        })
-
-        socket.on('agent-step', (step: AgentStep) => {
-            console.log('Agent step:', step)
-            setCurrentSteps(prev => [...prev, step])
-        })
-
-        socket.on('agent-complete', (data: { answer: string; total_steps: number; iterations: number }) => {
-            console.log('Agent complete:', data)
-            setCurrentAnswer(data.answer)
-            setIsProcessing(false)
-        })
-
-        socket.on('agent-error', (data: { message: string }) => {
-            console.error('Agent error:', data)
-            setCurrentSteps(prev => [...prev, {
-                type: 'error',
-                content: data.message,
-                iteration: prev.length + 1
-            }])
-            setIsProcessing(false)
-        })
-
-        socket.on('connect_error', (err) => {
-            console.error('Connection error:', err)
             if (!reconnectTimeoutRef.current) {
                 reconnectTimeoutRef.current = setTimeout(() => {
                     reconnectTimeoutRef.current = null
                     connectSocket()
                 }, 3000)
             }
-        })
-    }, [])
+        }
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data)
+                if (data.type === 'step') {
+                    const step: AgentStep = {
+                        type: data.step_type || 'observation',
+                        content: data.content,
+                        tool: data.tool,
+                        arguments: data.arguments,
+                        tool_result: data.tool_result,
+                        iteration: currentSteps.length + 1
+                    }
+                    setCurrentSteps(prev => [...prev, step])
+                } else if (data.type === 'complete') {
+                    setCurrentAnswer(data.answer || data.result?.final_answer || '任务完成')
+                    setIsProcessing(false)
+                } else if (data.type === 'error') {
+                    setCurrentSteps(prev => [...prev, {
+                        type: 'error',
+                        content: data.error || data.message,
+                        iteration: prev.length + 1
+                    }])
+                    setIsProcessing(false)
+                }
+            } catch (err) {
+                console.error('Error parsing WebSocket message:', err)
+            }
+        }
+
+        ws.onerror = (err) => {
+            console.error('WebSocket error:', err)
+            setIsConnected(false)
+        }
+    }, [currentSteps.length])
 
     useEffect(() => {
         connectSocket()
@@ -223,7 +219,7 @@ function AppContent() {
             if (reconnectTimeoutRef.current) {
                 clearTimeout(reconnectTimeoutRef.current)
             }
-            socketRef.current?.disconnect()
+            chatWsRef.current?.close()
         }
     }, [connectSocket])
 
@@ -510,9 +506,16 @@ function AppContent() {
             setCurrentSteps([])
             setCurrentAnswer(null)
             setSelectedTaskId(undefined)
-            socketRef.current?.emit('user-message', {
-                message: finalMessage,
-            })
+
+            if (chatWsRef.current?.readyState === WebSocket.OPEN) {
+                chatWsRef.current.send(JSON.stringify({
+                    type: 'task',
+                    message: finalMessage
+                }))
+            } else {
+                setPlanningError('WebSocket 未连接，请检查后端服务')
+                setIsProcessing(false)
+            }
         }
 
         setInputValue('')

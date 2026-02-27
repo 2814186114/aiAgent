@@ -799,6 +799,7 @@ async def check_memory_available():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    """基础 Agent WebSocket 端点"""
     await websocket.accept()
     active_websockets.append(websocket)
     
@@ -825,6 +826,42 @@ async def websocket_endpoint(websocket: WebSocket):
                         "total_steps": len(result["steps"]),
                         "iterations": result["iterations"]
                     }
+                })
+            
+    except WebSocketDisconnect:
+        if websocket in active_websockets:
+            active_websockets.remove(websocket)
+
+@app.websocket("/ws/chat")
+async def chat_websocket_endpoint(websocket: WebSocket):
+    """聊天模式 WebSocket 端点（兼容旧的 Socket.IO 功能）"""
+    await websocket.accept()
+    active_websockets.append(websocket)
+    
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message_data = json.loads(data)
+            
+            if message_data.get("type") == "task":
+                task = message_data.get("message", "")
+                
+                async def send_step(step: Dict[str, Any]):
+                    await websocket.send_json({
+                        "type": "step",
+                        "step_type": step.get("type", "observation"),
+                        "content": step.get("content", ""),
+                        "tool": step.get("tool"),
+                        "arguments": step.get("arguments"),
+                        "tool_result": step.get("tool_result")
+                    })
+                
+                result = await agent.run(task, callback=send_step)
+                
+                await websocket.send_json({
+                    "type": "complete",
+                    "answer": result["answer"],
+                    "result": result
                 })
             
     except WebSocketDisconnect:

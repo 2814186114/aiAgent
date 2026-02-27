@@ -4,9 +4,8 @@
     "description": "Academic Assistant Agent - AI-powered desktop application for graduate students",
     "main": "electron-main.js",
     "scripts": {
-        "dev": "concurrently -k \"npm run dev:frontend\" \"npm run dev:server\" \"npm run dev:python\" \"npm run dev:electron\"",
+        "dev": "concurrently -k \"npm run dev:frontend\" \"npm run dev:python\" \"npm run dev:electron\"",
         "dev:frontend": "vite",
-        "dev:server": "node server.js",
         "dev:python": "python -m uvicorn main:app --reload --port 8000",
         "dev:electron": "wait-on http://localhost:5173 && electron .",
         "build": "vite build",
@@ -28,14 +27,11 @@
         "echarts": "^6.0.0",
         "echarts-for-react": "^3.0.6",
         "electron-is-dev": "^3.0.1",
-        "express": "^4.18.2",
         "node-fetch": "^2.7.0",
         "pptxgenjs": "^4.0.1",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-markdown": "^10.1.0",
-        "socket.io": "^4.7.2",
-        "socket.io-client": "^4.7.2",
         "wait-on": "^7.2.0",
         "ws": "^8.19.0"
     },
@@ -62,7 +58,6 @@
             "dist/**/*",
             "electron-main.js",
             "preload.js",
-            "server.js",
             "main.py",
             "requirements.txt",
             "node_modules/**/*"
