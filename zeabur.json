@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.zeabur.app/template.json",
+  "name": "AgentPaper",
+  "description": "AI 学术助手 - 多层次 Agent 协作架构",
+  "icon": "https://raw.githubusercontent.com/your-repo/icon.png",
+  "services": [
+    {
+      "name": "python-server",
+      "type": "prebuilt",
+      "source": {
+        "type": "dockerfile",
+        "path": "Dockerfile.python"
+      },
+      "env": {
+        "LLM_PROVIDER": "deepseek",
+        "DEEPSEEK_API_KEY": "${DEEPSEEK_API_KEY}",
+        "DEEPSEEK_BASE_URL": "https://api.deepseek.com"
+      },
+      "ports": [
+        {
+          "type": "http",
+          "port": 8000
+        }
+      ]
+    },
+    {
+      "name": "frontend",
+      "type": "prebuilt",
+      "source": {
+        "type": "dockerfile",
+        "path": "Dockerfile.frontend"
+      },
+      "ports": [
+        {
+          "type": "http",
+          "port": 80
+        }
+      ],
+      "dependsOn": ["python-server"]
+    }
+  ]
+}
