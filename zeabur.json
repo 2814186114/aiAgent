@@ -6,10 +6,10 @@
   "services": [
     {
       "name": "python-server",
-      "type": "prebuilt",
+      "template": "PREBUILT",
       "source": {
         "type": "dockerfile",
-        "path": "Dockerfile.python"
+        "path": "Dockerfile"
       },
       "env": {
         "LLM_PROVIDER": "deepseek",
@@ -25,7 +25,7 @@
     },
     {
       "name": "frontend",
-      "type": "prebuilt",
+      "template": "PREBUILT",
       "source": {
         "type": "dockerfile",
         "path": "Dockerfile.frontend"
