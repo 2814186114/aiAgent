@@ -8,6 +8,7 @@ if os.path.exists(_lib_path):
     sys.path.insert(0, _lib_path)
 
 from .unified_agent import UnifiedAgent, TaskType
+from .reflection import ReflectionAgent
 from .long_term_memory import LongTermMemory, get_long_term_memory
 from .memory_context import MemoryContextManager, get_memory_context_manager
 
@@ -15,6 +16,7 @@ from .memory_context import MemoryContextManager, get_memory_context_manager
 class UnifiedAgentWithMemory:
     def __init__(self, base_agent: UnifiedAgent = None):
         self.base_agent = base_agent or UnifiedAgent()
+        self.reflection_agent = ReflectionAgent(self.base_agent)
         self.memory = get_long_term_memory()
         self.memory_manager = get_memory_context_manager()
     
@@ -52,10 +54,10 @@ class UnifiedAgentWithMemory:
                 if memory_context:
                     enhanced_context["memory_context"] = memory_context
         
-        result = await self.base_agent.execute_task(
+        result = await self.reflection_agent.execute_task(
             task=task,
             callback=callback,
-            context_input=enhanced_context
+            context=enhanced_context
         )
         
         if self.memory.is_available():
