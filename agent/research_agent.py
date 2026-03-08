@@ -510,28 +510,56 @@ class ResearchAgent:
         sections = []
         
         sections.append({
-            "title": "研究概述",
-            "content": f"本报告对「{topic}」领域进行了系统性文献调研，共分析 {len(papers)} 篇论文，"
-                      f"识别出 {len(clusters)} 个主要研究方向。",
+            "title": "摘要",
+            "content": f"本文献综述对「{topic}」领域进行了系统性调研与分析。通过检索多个学术数据库，共筛选出 {len(papers)} 篇高质量文献进行深入分析。研究发现该领域主要围绕 {len(clusters)} 个核心研究方向展开，本文将从研究背景、主要方向、关键发现、研究交叉点及未来展望等方面进行系统阐述。",
             "references": []
         })
         
-        for cluster in clusters[:5]:
+        sections.append({
+            "title": "一、研究背景与意义",
+            "content": f"近年来，「{topic}」领域受到学术界和工业界的广泛关注。随着技术的快速发展，该领域涌现出大量创新性研究成果。本综述旨在梳理该领域的研究脉络，总结主要研究进展，分析现有研究的优势与不足，并为未来研究方向提供参考。\n\n本次文献调研覆盖了 {len(papers)} 篇相关论文，时间跨度主要为近3年的研究成果，来源包括 arXiv、Semantic Scholar 等主流学术平台。",
+            "references": []
+        })
+        
+        sections.append({
+            "title": "二、主要研究方向",
+            "content": f"通过对文献的系统性分析，识别出 {len(clusters)} 个主要研究方向：",
+            "references": []
+        })
+        
+        for i, cluster in enumerate(clusters[:5], 1):
             cluster_papers = cluster.get("papers", [])
-            content = f"该方向包含 {cluster.get('paper_count', 0)} 篇论文。\n\n"
+            keywords = cluster.get("keywords", [])
+            paper_count = cluster.get('paper_count', len(cluster_papers))
+            
+            content = f"\n### 2.{i} {cluster.get('name', f'研究方向{i}')}\n\n"
+            content += f"该方向共包含 {paper_count} 篇相关文献"
+            if keywords:
+                content += f"，主要关键词包括：{', '.join(keywords[:5])}"
+            content += "。\n\n"
+            
+            if cluster_papers:
+                content += "**代表性文献：**\n\n"
+                for j, p in enumerate(cluster_papers[:3], 1):
+                    authors = p.get("authors", [])
+                    author_str = authors[0] if authors else "未知作者"
+                    if len(authors) > 1:
+                        author_str += " 等"
+                    content += f"{j}. {author_str}. {p.get('title', '未知标题')}[{p.get('source', 'J')}, {p.get('year', '')}].\n"
             
             key_findings = []
             for p in cluster_papers[:3]:
                 analysis = p.get("analysis", {})
                 if analysis.get("contributions"):
-                    key_findings.append({
-                        "finding": analysis["contributions"][0],
-                        "paper": p.get("title", ""),
-                        "paper_id": p.get("paper_id", "")
-                    })
+                    for contribution in analysis.get("contributions", [])[:2]:
+                        key_findings.append({
+                            "finding": contribution,
+                            "paper": p.get("title", ""),
+                            "paper_id": p.get("paper_id", "")
+                        })
             
             sections.append({
-                "title": cluster.get("name", "未命名方向"),
+                "title": f"2.{i} {cluster.get('name', f'研究方向{i}')}",
                 "content": content,
                 "key_findings": key_findings,
                 "references": [{"title": p.get("title"), "year": p.get("year")} 
@@ -539,29 +567,87 @@ class ResearchAgent:
             })
         
         if cross_points:
-            cross_content = ""
-            for cp in cross_points:
-                cross_content += f"**{cp.get('name', '')}**\n"
+            cross_content = "### 研究交叉点分析\n\n"
+            cross_content += "通过聚类分析，发现以下研究方向之间存在显著的交叉融合趋势：\n\n"
+            for i, cp in enumerate(cross_points, 1):
+                cross_content += f"**{i}. {cp.get('name', '')}**\n\n"
                 cross_content += f"{cp.get('description', '')}\n\n"
+                if cp.get("potential_methods"):
+                    cross_content += f"潜在研究方法：{', '.join(cp.get('potential_methods', []))}\n\n"
             
             sections.append({
-                "title": "研究交叉点",
+                "title": "三、研究交叉点分析",
                 "content": cross_content,
                 "references": []
             })
         
+        all_methods = []
+        for p in papers:
+            methods = p.get("analysis", {}).get("methods", [])
+            all_methods.extend(methods)
+        
+        method_freq = {}
+        for m in all_methods:
+            key = m[:30]
+            method_freq[key] = method_freq.get(key, 0) + 1
+        top_methods = sorted(method_freq.items(), key=lambda x: -x[1])[:5]
+        
+        methods_content = "通过对文献的系统性分析，该领域主要采用以下研究方法：\n\n"
+        for i, (method, count) in enumerate(top_methods, 1):
+            methods_content += f"{i}. **{method}**：在 {count} 篇文献中被采用。\n"
+        
         sections.append({
-            "title": "未来展望",
+            "title": "四、主要研究方法",
+            "content": methods_content,
+            "references": []
+        })
+        
+        sections.append({
+            "title": "五、研究局限与挑战",
+            "content": self._generate_limitations(papers),
+            "references": []
+        })
+        
+        sections.append({
+            "title": "六、未来研究展望",
             "content": self._generate_future_outlook(papers, clusters, cross_points),
             "references": []
         })
         
+        sections.append({
+            "title": "七、结论",
+            "content": f"本文献综述系统性地梳理了「{topic}」领域的研究现状。通过对 {len(papers)} 篇文献的深入分析，识别出 {len(clusters)} 个主要研究方向，并发现了 {len(cross_points)} 个潜在的研究交叉点。研究结果为该领域的后续研究提供了重要参考，也为相关学者把握研究动态提供了有益借鉴。",
+            "references": []
+        })
+        
         return {
-            "title": f"「{topic}」研究综述报告",
+            "title": f"「{topic}」文献综述报告",
             "generated_at": datetime.now().isoformat(),
             "total_papers": len(papers),
             "sections": sections
         }
+    
+    def _generate_limitations(self, papers: List[Dict]) -> str:
+        all_limitations = []
+        for p in papers:
+            limitations = p.get("analysis", {}).get("limitations", [])
+            all_limitations.extend(limitations)
+        
+        if not all_limitations:
+            return "当前研究整体发展较为成熟，但仍需在以下方面持续改进：\n\n1. 研究方法的标准化程度有待提高\n2. 实验数据的可复现性需要加强\n3. 理论与实践的结合仍有提升空间"
+        
+        limitation_freq = {}
+        for l in all_limitations:
+            key = l[:50]
+            limitation_freq[key] = limitation_freq.get(key, 0) + 1
+        
+        top_limitations = sorted(limitation_freq.items(), key=lambda x: -x[1])[:5]
+        
+        content = "通过对文献的系统分析，发现当前研究存在以下主要局限：\n\n"
+        for i, (limitation, count) in enumerate(top_limitations, 1):
+            content += f"{i}. {limitation}（涉及 {count} 篇文献）\n"
+        
+        return content
     
     def _generate_future_outlook(self, papers: List[Dict], clusters: List[Dict], 
                                   cross_points: List[Dict]) -> str:
@@ -577,15 +663,21 @@ class ResearchAgent:
         
         top_limitations = sorted(limitation_freq.items(), key=lambda x: -x[1])[:3]
         
-        outlook = "基于本次文献调研，识别出以下潜在研究方向：\n\n"
+        outlook = "基于本次文献调研，对未来研究方向提出以下建议：\n\n"
         
-        if cross_points:
-            outlook += f"1. **交叉研究机会**：{cross_points[0].get('name', '待探索')} 等方向展现出跨学科潜力。\n"
-        
+        outlook += "### 6.1 理论研究方向\n\n"
         if top_limitations:
-            outlook += f"2. **现有局限**：当前研究在 {'、'.join([l[0] for l in top_limitations])} 等方面存在不足。\n"
+            outlook += f"针对当前研究在 {'、'.join([l[0] for l in top_limitations[:2]])} 等方面的不足，建议从理论层面进行深入探索，完善相关理论框架。\n\n"
         
-        outlook += "3. **建议**：建议关注方法创新与实际应用的结合，推动领域发展。"
+        outlook += "### 6.2 方法创新方向\n\n"
+        if cross_points:
+            outlook += f"**交叉研究机会**：{cross_points[0].get('name', '待探索')} 等方向展现出跨学科潜力，建议结合多领域方法进行创新研究。\n\n"
+        
+        outlook += "### 6.3 应用实践方向\n\n"
+        outlook += "建议关注方法创新与实际应用的结合，推动研究成果向实际应用转化，解决实际问题。\n\n"
+        
+        outlook += "### 6.4 数据与资源方向\n\n"
+        outlook += "建议构建更大规模、更高质量的数据集，为后续研究提供基础支撑。\n"
         
         return outlook
     

@@ -1220,8 +1220,39 @@ class UnifiedAgent:
                 await self._send_step_output(step.step_id, step_result, callback)
                 await self._update_step_status(step, TaskStatus.COMPLETED, callback)
                 
+                output_type = step_result.get("output_type", "")
+                
                 if step.step_id == "answer" and "answer" in step_result:
                     final_results.append(f"**{step.name}**:\n\n{step_result['answer']}")
+                elif output_type == "report" and "report" in step_result:
+                    final_results.append(f"**{step.name}**:\n\n{step_result['report']}")
+                elif output_type == "analysis" and "analysis" in step_result:
+                    analysis = step_result["analysis"]
+                    if isinstance(analysis, dict):
+                        analysis_text = ""
+                        if analysis.get("summary"):
+                            analysis_text += f"**总结**: {analysis['summary']}\n\n"
+                        if analysis.get("key_topics"):
+                            analysis_text += f"**关键主题**: {', '.join(analysis['key_topics'])}\n\n"
+                        if analysis.get("methods"):
+                            analysis_text += f"**主要方法**: {', '.join(analysis['methods'])}\n\n"
+                        if analysis.get("trends"):
+                            analysis_text += f"**研究趋势**: {analysis['trends']}\n\n"
+                        if analysis.get("contributions"):
+                            analysis_text += f"**主要贡献**: {', '.join(analysis['contributions'])}\n\n"
+                        final_results.append(f"**{step.name}**:\n\n{analysis_text}")
+                    else:
+                        final_results.append(f"**{step.name}**: {step_result.get('result', '完成')}")
+                elif output_type == "research_report" and "report" in step_result:
+                    report = step_result["report"]
+                    if isinstance(report, dict) and report.get("sections"):
+                        report_text = f"# {report.get('title', '研究报告')}\n\n"
+                        for section in report.get("sections", []):
+                            report_text += f"## {section.get('title', '')}\n\n"
+                            report_text += f"{section.get('content', '')}\n\n"
+                        final_results.append(report_text)
+                    else:
+                        final_results.append(f"**{step.name}**:\n\n{report}")
                 else:
                     final_results.append(f"**{step.name}**: {step_result.get('result', '完成')}")
                 

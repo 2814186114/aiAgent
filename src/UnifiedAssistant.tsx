@@ -277,6 +277,162 @@ function downloadReportAsHTML(result: ResearchResult) {
     URL.revokeObjectURL(url)
 }
 
+function downloadReportAsWord(result: ResearchResult) {
+    let html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>${result.report?.title || '研究报告'}</title>
+    <style>
+        body { font-family: "宋体", SimSun, serif; font-size: 12pt; line-height: 1.8; }
+        h1 { font-family: "黑体", SimHei, sans-serif; font-size: 18pt; text-align: center; margin: 20pt 0; }
+        h2 { font-family: "黑体", SimHei, sans-serif; font-size: 14pt; margin-top: 16pt; border-bottom: 1px solid #333; padding-bottom: 4pt; }
+        h3 { font-family: "黑体", SimHei, sans-serif; font-size: 12pt; margin-top: 12pt; }
+        p { text-indent: 2em; margin: 6pt 0; text-align: justify; }
+        .abstract { background: #f5f5f5; padding: 10pt; margin: 10pt 0; border-left: 3pt solid #1a5fb4; }
+        .finding { margin: 8pt 0; padding-left: 1em; }
+        .reference { font-size: 10pt; color: #333; margin: 4pt 0; text-indent: 0; }
+        .ref-title { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>${result.report?.title || '文献综述报告'}</h1>
+    
+    <p style="text-align: center; font-size: 10pt; color: #666;">
+        生成时间：${new Date().toLocaleDateString('zh-CN')} | 
+        文献数量：${result.papers?.length || 0} 篇
+    </p>`
+
+    result.report?.sections?.forEach(section => {
+        html += `
+    <h2>${section.title}</h2>`
+
+        const paragraphs = section.content.split('\n\n').filter(p => p.trim())
+        paragraphs.forEach(para => {
+            html += `
+    <p>${para.replace(/\n/g, '<br>')}</p>`
+        })
+
+        if (section.key_findings && section.key_findings.length > 0) {
+            html += `
+    <h3>主要发现</h3>`
+            section.key_findings.forEach(finding => {
+                html += `
+    <p class="finding">• ${finding.finding} <span style="color: #1a5fb4;">[${finding.paper}]</span></p>`
+            })
+        }
+    })
+
+    html += `
+    <h2>参考文献</h2>
+    <p style="font-size: 10pt; color: #666; text-indent: 0;">（共 ${result.papers?.length || 0} 篇，以下列出前 20 篇）</p>`
+
+    result.papers?.slice(0, 20).forEach((paper, idx) => {
+        html += `
+    <p class="reference">[${idx + 1}] ${paper.authors?.join(', ') || '未知作者'}. ${paper.title}[J]. ${paper.source || '未知来源'}, ${paper.year}.</p>`
+    })
+
+    html += `
+</body>
+</html>`
+
+    const blob = new Blob([html], { type: 'application/msword;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${result.topic || 'research_report'}.doc`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+}
+
+function downloadContentAsWord(content: string, title: string, papers?: Paper[]) {
+    const lines = content.split('\n')
+    let bodyContent = ''
+
+    lines.forEach(line => {
+        if (line.startsWith('# ')) {
+            bodyContent += `    <h1>${line.substring(2)}</h1>\n`
+        } else if (line.startsWith('## ')) {
+            bodyContent += `    <h2>${line.substring(3)}</h2>\n`
+        } else if (line.startsWith('### ')) {
+            bodyContent += `    <h3>${line.substring(4)}</h3>\n`
+        } else if (line.startsWith('**') && line.endsWith('**')) {
+            bodyContent += `    <p><strong>${line.substring(2, line.length - 2)}</strong></p>\n`
+        } else if (line.trim()) {
+            bodyContent += `    <p>${line}</p>\n`
+        }
+    })
+
+    if (papers && papers.length > 0) {
+        bodyContent += `
+    <h2>参考文献</h2>
+    <p style="font-size: 10pt; color: #666; text-indent: 0;">（共 ${papers.length} 篇）</p>`
+
+        papers.slice(0, 20).forEach((paper, idx) => {
+            bodyContent += `
+    <p class="reference">[${idx + 1}] ${paper.authors?.join(', ') || '未知作者'}. ${paper.title}[J]. ${paper.source || '未知来源'}, ${paper.year}.</p>`
+        })
+    }
+
+    const html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    <style>
+        body { font-family: "宋体", SimSun, serif; font-size: 12pt; line-height: 1.8; }
+        h1 { font-family: "黑体", SimHei, sans-serif; font-size: 18pt; text-align: center; margin: 20pt 0; }
+        h2 { font-family: "黑体", SimHei, sans-serif; font-size: 14pt; margin-top: 16pt; border-bottom: 1px solid #333; padding-bottom: 4pt; }
+        h3 { font-family: "黑体", SimHei, sans-serif; font-size: 12pt; margin-top: 12pt; }
+        p { text-indent: 2em; margin: 6pt 0; text-align: justify; }
+        .reference { font-size: 10pt; color: #333; margin: 4pt 0; text-indent: 0; }
+    </style>
+</head>
+<body>
+    <h1>${title}</h1>
+    <p style="text-align: center; font-size: 10pt; color: #666;">
+        生成时间：${new Date().toLocaleDateString('zh-CN')}
+    </p>
+${bodyContent}
+</body>
+</html>`
+
+    const blob = new Blob([html], { type: 'application/msword;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${title.replace(/[\\/:*?"<>|]/g, '_')}.doc`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+}
+
+function downloadContentAsMarkdown(content: string, title: string, papers?: Paper[]) {
+    let md = `# ${title}\n\n`
+    md += `> 生成时间：${new Date().toLocaleDateString('zh-CN')}\n\n`
+    md += content
+
+    if (papers && papers.length > 0) {
+        md += '\n\n---\n\n## 参考文献\n\n'
+        papers.slice(0, 20).forEach((paper, idx) => {
+            md += `[${idx + 1}] ${paper.authors?.join(', ') || '未知作者'}. *${paper.title}*. ${paper.source || '未知来源'}, ${paper.year}.\n`
+        })
+    }
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+}
+
 function renderPapers(papers: Paper[], onPaperClick: (paper: Paper) => void) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
@@ -333,10 +489,10 @@ function ResearchResultDisplay({ result, onPaperClick }: { result: ResearchResul
                         </h3>
                         <div className="flex gap-2">
                             <button
-                                onClick={() => downloadReportAsText(result)}
-                                className="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                                onClick={() => downloadReportAsWord(result)}
+                                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1"
                             >
-                                📄 TXT
+                                📄 Word
                             </button>
                             <button
                                 onClick={() => downloadReportAsMarkdown(result)}
@@ -1432,6 +1588,23 @@ export function UnifiedAssistant() {
                                             <div className="text-gray-300 text-sm prose prose-invert prose-sm max-w-none">
                                                 <ReactMarkdown>{msg.content}</ReactMarkdown>
                                             </div>
+                                            {msg.content && msg.content.length > 100 && (
+                                                <div className="mt-4 pt-3 border-t border-gray-700 flex items-center gap-2">
+                                                    <span className="text-xs text-gray-500">导出报告：</span>
+                                                    <button
+                                                        onClick={() => downloadContentAsWord(msg.content, '文献综述报告', msg.papers)}
+                                                        className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1"
+                                                    >
+                                                        📄 Word
+                                                    </button>
+                                                    <button
+                                                        onClick={() => downloadContentAsMarkdown(msg.content, '文献综述报告', msg.papers)}
+                                                        className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition-colors"
+                                                    >
+                                                        📝 Markdown
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
