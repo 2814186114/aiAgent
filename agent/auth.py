@@ -2,6 +2,7 @@ import sqlite3
 import json
 import hashlib
 import secrets
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -9,13 +10,10 @@ from typing import Dict, Any, List, Optional, Tuple
 
 def get_db_path() -> str:
     import sys
-    if sys.platform == "win32":
-        app_data = Path.home() / "AppData" / "Roaming" / "AcademicAssistant"
-    else:
-        app_data = Path.home() / ".academicassistant"
-    
-    app_data.mkdir(parents=True, exist_ok=True)
-    return str(app_data / "academic.db")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    user_data_dir = os.path.join(base_dir, "userData")
+    os.makedirs(user_data_dir, exist_ok=True)
+    return os.path.join(user_data_dir, "academic.db")
 
 
 def init_db():

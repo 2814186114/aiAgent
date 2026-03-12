@@ -1,9 +1,7 @@
 import {
+  __commonJS,
   require_react
-} from "/node_modules/.vite/deps/chunk-73THXJN7.js?v=9990a353";
-import {
-  __commonJS
-} from "/node_modules/.vite/deps/chunk-2TUXWMP5.js?v=9990a353";
+} from "/node_modules/.vite/deps/chunk-WXTH2UMW.js?v=effcdfc1";
 
 // node_modules/react/cjs/react-jsx-dev-runtime.development.js
 var require_react_jsx_dev_runtime_development = __commonJS({

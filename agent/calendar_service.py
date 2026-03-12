@@ -1,6 +1,7 @@
 import subprocess
 import platform
 import json
+import os
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from pathlib import Path
@@ -9,13 +10,10 @@ import sqlite3
 
 def get_db_path() -> str:
     import sys
-    if sys.platform == "win32":
-        app_data = Path.home() / "AppData" / "Roaming" / "AcademicAssistant"
-    else:
-        app_data = Path.home() / ".academicassistant"
-    
-    app_data.mkdir(parents=True, exist_ok=True)
-    return str(app_data / "schedules.db")
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    user_data_dir = os.path.join(base_dir, "userData")
+    os.makedirs(user_data_dir, exist_ok=True)
+    return os.path.join(user_data_dir, "schedules.db")
 
 
 def init_schedule_db():
